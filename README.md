@@ -1,11 +1,32 @@
-# z-melvynx-benches
-Les benches à Melvyn pour tester les IA ;-)
+# React + TypeScript + Vite
 
-Melvyn a créé et partagé pkeins de benches pour tester différents modèles d'IA ou d'agents. C'est ceux que l'on vois dans toutes ses vidéos !
+This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
-Je peux aussi les tester avec les modèles *open* qui tournent sur une infra locale et ainsi les comparer aux résultats de Melvyn qui lui teste plutôt les modèles *fermés* industriels.
+Currently, two official plugins are available:
 
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
+## React Compiler
 
-## Sources:
-https://code.melvynx.dev/prompts
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+
+## Expanding the Oxlint configuration
+
+If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+
+```json
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "oxc"],
+  "options": {
+    "typeAware": true
+  },
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/only-export-components": ["warn", { "allowConstantExport": true }]
+  }
+}
+```
+
+See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
