@@ -1,32 +1,120 @@
-# React + TypeScript + Vite
+# 🌍 Earthquake Explorer
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Explorateur interactif d'activité sismique mondiale en temps réel, alimenté par les données publiques de l'USGS (United States Geological Survey).
 
-Currently, two official plugins are available:
+![Earthquake Explorer](https://img.shields.io/badge/status-live-green) ![USGS Data](https://img.shields.io/badge/data-USGS-orange) ![Vite](https://img.shields.io/badge/vite-8.x-cyan)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## ✨ Fonctionnalités
 
-## React Compiler
+- 🗺️ **Carte interactive** avec fond de carte sombre (CartoDB Dark)
+- 📍 **Marqueurs individuels** pour chaque séisme — pas de regroupement
+- 🎨 **Code couleur par magnitude** : du vert (mineur) au rouge foncé (majeur)
+- 🔍 **Filtres** : plage temporelle (24h, 7j, 30j) et magnitude minimale
+- 📋 **Panneau de détails** au clic sur un événement
+- 🔄 **Actualisation automatique** toutes les 5 minutes
+- 📱 **Interface responsive** et soignée
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🛠️ Stack technique
 
-## Expanding the Oxlint configuration
+| Couche | Technologie |
+|--------|-------------|
+| Framework | [React](https://react.dev) + [TypeScript](https://www.typescriptlang.org) |
+| Build | [Vite](https://vite.dev) |
+| Style | [Tailwind CSS v4](https://tailwindcss.com) |
+| Carte | [Leaflet](https://leafletjs.com) + [react-leaflet](https://react-leaflet.js.org) |
+| Données | [USGS FDSNWS API](https://earthquake.usgs.gov/fdsnws/event/1/) |
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+## 📦 Installation
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+# Cloner le dépôt
+git clone https://github.com/zuzu59/z-melvynx-benches.git
+cd z-melvynx-benches
+git checkout tests-earthquake-ornith-1
+
+# Installer les dépendances
+npm install
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## 🚀 Démarrage
+
+```bash
+# Mode développement (HMR inclus)
+npm run dev
+
+# Build de production
+npm run build
+
+# Prévisualiser le build
+npm run preview
+```
+
+Le serveur de développement démarre sur `http://localhost:5173/`.
+
+Pour exposer l'app sur le réseau local :
+
+```bash
+npx vite --host 0.0.0.0 --port 5173
+```
+
+## 🌐 Source de données
+
+L'application utilise l'[API publique USGS](https://earthquake.usgs.gov/fdsnws/event/1/query) — aucune clé API n'est requise. Les données proviennent directement du [USGS Earthquake Hazards Program](https://earthquake.usgs.gov/earthquakes/) et sont actualisées en continu.
+
+### Exemple d'appel API
+
+```
+https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&minmagnitude=2&orderby=time
+```
+
+## 📖 Utilisation
+
+1. **Ouvrir** l'application dans un navigateur
+2. **Explorer** la carte mondiale remplie de marqueurs colorés
+3. **Filtrer** la vue via :
+   - Le sélecteur de **plage temporelle** (24h, 7 jours, 30 jours)
+   - Le curseur de **magnitude minimale**
+4. **Cliquer** sur un marqueur pour voir les détails dans le panneau latéral
+5. **Consulter** la liste des événements triée par magnitude dans le panneau de gauche
+6. **Suivre** les alertes (alertes USGS) et les signaux de tsunami
+
+### Code couleur des magnitudes
+
+| Magnitude | Couleur | Catégorie |
+|-----------|---------|-----------|
+| < 2 | 🟢 Vert | Très mineur |
+| 2 – 2.9 | 🟢 Vert | Mineur |
+| 3 – 3.9 | 🟡 Vert clair | Mineur |
+| 4 – 4.9 | 🟡 Jaune | Modéré |
+| 5 – 5.9 | 🟠 Orange | Modéré fort |
+| 6 – 6.9 | 🔴 Rouge-orange | Fort |
+| 7 – 7.9 | 🔴 Rouge | Majeur |
+| ≥ 8 | 🔴 Rouge foncé | Très majeur |
+
+## 🏗️ Structure du projet
+
+```
+├── index.html                # Point d'entrée HTML
+├── package.json              # Dépendances du projet
+├── vite.config.ts            # Configuration Vite + Tailwind
+├── tsconfig.app.json         # Configuration TypeScript
+├── src/
+│   ├── main.tsx              # Montage de l'application
+│   ├── App.tsx               # Composant principal (explorateur)
+│   └── index.css             # Styles Tailwind
+└── dist/                     # Build de production (généré)
+```
+
+## 📄 Licence
+
+[LICENSE](./LICENSE) — Voir le fichier LICENSE pour les détails.
+
+## 🙏 Crédits
+
+- Données sismiques : [USGS](https://earthquake.usgs.gov/)
+- Fond de carte : [CartoDB](https://carto.com/) / [OpenStreetMap](https://www.openstreetmap.org/)
+- Bibliothèque cartographique : [Leaflet](https://leafletjs.com/) (MIT)
+
+---
+
+> Construit avec ❤️ pour explorer la dynamique de notre planète.
