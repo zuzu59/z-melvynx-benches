@@ -1,11 +1,67 @@
 # z-melvynx-benches
-Les benches à Melvyn pour tester les IA ;-)
 
-Melvyn a créé et partagé pkeins de benches pour tester différents modèles d'IA ou d'agents. C'est ceux que l'on vois dans toutes ses vidéos !
+Collection de benches pour tester des IA/agets sur des mini-projets web.
 
-Je peux aussi les tester avec les modèles *open* qui tournent sur une infra locale et ainsi les comparer aux résultats de Melvyn qui lui teste plutôt les modèles *fermés* industriels.
+## Bench actuel
 
+### Earthquake Explorer
+Application statique qui affiche les séismes récents du flux USGS sur une carte interactive.
 
+#### Fonctionnalités
+- Carte interactive avec fond de carte visible
+- Séismes affichés individuellement à leurs vraies coordonnées
+- Filtres par période, magnitude, profondeur, type d’événement et recherche texte
+- Détails interactifs au clic sur un point ou un item de la liste
+- Code couleur par magnitude et profondeur
+- Données live USGS avec rafraîchissement automatique
 
-## Sources:
-https://code.melvynx.dev/prompts
+---
+
+## Lancer le projet
+
+### Prérequis
+- Python 3
+- Un navigateur web
+
+### Démarrage rapide
+
+Depuis la racine du dépôt :
+
+```bash
+python3 -m http.server 8000 --bind 0.0.0.0
+```
+
+Puis ouvrir :
+
+```text
+http://localhost:8000
+```
+
+Ou depuis une autre machine du réseau :
+
+```text
+http://<adresse-ip-de-la-machine>:8000
+```
+
+### Port utilisé
+- `8000`
+
+### Bind réseau
+- `0.0.0.0` pour exposer le serveur sur toutes les interfaces
+
+---
+
+## Fichiers importants
+
+- `index.html` : page d’entrée du bench
+- `dist/index.html` : version statique prête à servir
+- `dist/assets/earthquake-app.css` : styles de l’application
+- `dist/assets/earthquake-app.js` : logique de l’application
+- `dist/assets/leaflet.js` / `dist/assets/leaflet.css` : librairie carte
+
+---
+
+## Notes
+
+- L’application consomme les API publiques USGS Earthquake, sans clé API.
+- Une connexion internet est nécessaire pour charger les tuiles cartographiques et les données live.
