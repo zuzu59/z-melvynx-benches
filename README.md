@@ -54,10 +54,9 @@ http://<adresse-ip-de-la-machine>:8000
 ## Fichiers importants
 
 - `index.html` : page d’entrée du bench
-- `dist/index.html` : version statique prête à servir
-- `dist/assets/earthquake-app.css` : styles de l’application
-- `dist/assets/earthquake-app.js` : logique de l’application
-- `dist/assets/leaflet.js` / `dist/assets/leaflet.css` : librairie carte
+- `src/earthquake-app.css` : styles de l’application
+- `src/earthquake-app.js` : logique de l’application
+- `dist/` : artefacts de build locaux non versionnés
 
 ---
 
