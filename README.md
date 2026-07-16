@@ -53,10 +53,12 @@ http://<adresse-ip-de-la-machine>:8000
 
 ## Fichiers importants
 
-- `index.html` : page d’entrée du bench
+- `index.html` : point d’entrée principal du bench
 - `src/earthquake-app.css` : styles de l’application
 - `src/earthquake-app.js` : logique de l’application
-- `dist/` : artefacts de build locaux non versionnés
+- `dist/` : anciens artefacts/build locaux générés, non utilisés comme source de vérité
+
+> Note : il peut exister un `dist/index.html` en local, mais la version à modifier et à pousser est bien le `index.html` à la racine.
 
 ---
 
