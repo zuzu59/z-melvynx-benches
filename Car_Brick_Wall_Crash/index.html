@@ -346,19 +346,23 @@ class PhysicsEngine {
 
       // Rotation
       b.angle += b.angVel * dt;
-      b.angVel *= 0.999; // slight angular damping
+      b.angVel *= 0.995; // angular damping
 
-      // Ground friction
+      // Ground friction (stronger)
       if (b.grounded && b.vel.y >= -0.01) {
-        const speed = Math.sqrt(b.vel.x * b.vel.x + b.vel.z ? b.vel.z * b.vel.z : 0);
+        const vx = b.vel.x;
+        const speed = Math.abs(vx);
         if (speed > 0.001) {
-          const frictionForce = b.friction * DEFAULTS.gravity;
+          const frictionForce = b.friction * DEFAULTS.gravity * 1.5;
           const decel = Math.min(frictionForce * dt, speed);
-          const dir = b.vel.x / (speed || 1);
-          b.vel.x -= dir * decel;
+          b.vel.x -= Math.sign(vx) * decel;
           if (Math.abs(b.vel.x) < 0.001) b.vel.x = 0;
         }
       }
+
+      // Air resistance
+      b.vel.x *= 0.999;
+      b.vel.y *= 0.999;
     }
   }
 
@@ -381,7 +385,6 @@ class PhysicsEngine {
         // Determine which body to unlock
         this.unlockWall();
 
-        const relVel = contact.pointA.sub(contact.pointB);
         const va = a.vel, vb = b.vel;
         const vRel = va.sub(vb);
 
@@ -392,29 +395,28 @@ class PhysicsEngine {
         const vRelN = vRel.dot(contact.normal);
         if (vRelN > 0) continue; // moving apart
 
-        const e = Math.min(a.restitution, b.restitution);
+        const e = Math.min(a.restitution, b.restitution) * 0.5; // lower restitution
         const jn = -(1 + e) * vRelN / totalInvMass;
 
         const impulse = contact.normal.scale(jn);
 
         if (a.invMass > 0) {
           a.vel = a.vel.add(impulse.scale(a.invMass));
-          // Simple angular impulse approximation
           const rA = contact.pointA.sub(a.pos);
-          a.angVel += rA.x * impulse.y - rA.y * impulse.x;
+          a.angVel += (rA.x * impulse.y - rA.y * impulse.x) * 0.1;
         }
         if (b.invMass > 0) {
           b.vel = b.vel.sub(impulse.scale(b.invMass));
           const rB = contact.pointB.sub(b.pos);
-          b.angVel -= rB.x * impulse.y - rB.y * impulse.x;
+          b.angVel -= (rB.x * impulse.y - rB.y * impulse.x) * 0.1;
         }
 
-        // Tangential friction impulse
+        // Tangential friction impulse (stronger)
         let vTan = vRel.sub(contact.normal.scale(vRelN));
         const tanLen = vTan.len();
         if (tanLen > 0.001) {
           const tanDir = vTan.scale(1 / tanLen);
-          const mu = Math.sqrt(a.friction * b.friction);
+          const mu = Math.sqrt(a.friction * b.friction) * 2;
           const jtMax = mu * Math.abs(jn);
           const vRelT = vRel.dot(tanDir);
           let jt = -vRelT / totalInvMass;
@@ -429,8 +431,8 @@ class PhysicsEngine {
           }
         }
 
-        // Position correction to prevent sinking
-        const correction = contact.normal.scale(contact.depth * 0.5);
+        // Position correction (stronger)
+        const correction = contact.normal.scale(contact.depth * 0.8);
         if (a.invMass > 0) a.pos = a.pos.add(correction.scale(a.invMass));
         if (b.invMass > 0) b.pos = b.pos.sub(correction.scale(b.invMass));
       }
@@ -619,8 +621,17 @@ class Renderer {
     const car = engine.bodies.find(b => b instanceof Car);
     let camX = 0;
     if (car && engine.running) {
-      const targetCam = -(car.pos.x - this.w * 0.25) * scale * 0.3;
-      camX = Math.max(targetCam, -(engine.bodies.length * 0.5 * scale * 0.3));
+      // Track car AND brick spread after impact
+      const bricks = engine.bodies.filter(b => b instanceof Brick);
+      let maxBrickX = 0;
+      for (const brick of bricks) {
+        if (Math.abs(brick.vel.x) > 0.1 || Math.abs(brick.pos.x - 12) > 2) {
+          maxBrickX = Math.max(maxBrickX, brick.pos.x);
+        }
+      }
+      const focusX = Math.max(car.pos.x, maxBrickX + 3);
+      const targetCam = -(focusX - this.w * 0.3) * scale * 0.25;
+      camX = Math.max(targetCam, -500);
     }
     ctx.translate(camX, 0);
 
