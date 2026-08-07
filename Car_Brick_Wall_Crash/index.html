@@ -353,7 +353,7 @@ class PhysicsEngine {
         const vx = b.vel.x;
         const speed = Math.abs(vx);
         if (speed > 0.001) {
-          const frictionForce = b.friction * DEFAULTS.gravity * 1.5;
+          const frictionForce = b.friction * DEFAULTS.gravity * 3;
           const decel = Math.min(frictionForce * dt, speed);
           b.vel.x -= Math.sign(vx) * decel;
           if (Math.abs(b.vel.x) < 0.001) b.vel.x = 0;
@@ -361,8 +361,8 @@ class PhysicsEngine {
       }
 
       // Air resistance
-      b.vel.x *= 0.999;
-      b.vel.y *= 0.999;
+      b.vel.x *= 0.995;
+      b.vel.y *= 0.995;
     }
   }
 
@@ -395,7 +395,7 @@ class PhysicsEngine {
         const vRelN = vRel.dot(contact.normal);
         if (vRelN > 0) continue; // moving apart
 
-        const e = Math.min(a.restitution, b.restitution) * 0.5; // lower restitution
+        const e = Math.min(a.restitution, b.restitution) * 0.1; // very low restitution
         const jn = -(1 + e) * vRelN / totalInvMass;
 
         const impulse = contact.normal.scale(jn);
