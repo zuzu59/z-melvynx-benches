@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Car Brick Wall Crash</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+#sim-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+#controls {
+  background: #16213e;
+  border-top: 2px solid #0f3460;
+  padding: 12px 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+  min-height: 90px;
+}
+#controls .section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+#controls .section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #e94560;
+  font-weight: 600;
+}
+#controls .btn-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+#controls button {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+#btn-test {
+  background: #e94560;
+  color: white;
+}
+#btn-test:hover { background: #c73650; }
+#btn-test:disabled { background: #555; cursor: not-allowed; }
+#btn-reset {
+  background: #0f3460;
+  color: #e0e0e0;
+}
+#btn-reset:hover { background: #1a4a7a; }
+#controls .slider-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#controls .slider-group label {
+  font-size: 12px;
+  min-width: 130px;
+  color: #aaa;
+}
+#controls .slider-group input[type="range"] {
+  width: 120px;
+  accent-color: #e94560;
+}
+#controls .slider-group .val {
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 60px;
+  color: #e94560;
+  text-align: right;
+}
+#telemetry {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(22, 33, 62, 0.85);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  border: 1px solid #0f3460;
+  pointer-events: none;
+}
+#telemetry span { color: #e94560; font-weight: 600; }
+h1 {
+  font-size: 14px;
+  color: #e94560;
+  align-self: center;
+  letter-spacing: 1px;
+}
+</style>
+</head>
+<body>
+
+<div id="sim-container">
+  <canvas id="sim"></canvas>
+  <div id="telemetry">
+    Speed: <span id="tel-speed">0.0</span> m/s<br>
+    Time: <span id="tel-time">0.00</span> s<br>
+    Moving bricks: <span id="tel-moving">0</span> / <span id="tel-total">0</span>
+  </div>
+</div>
+
+<div id="controls">
+  <div class="section">
+    <div class="btn-row">
+      <button id="btn-test">▶ TEST</button>
+      <button id="btn-reset">↺ RESET</button>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">Parameters</div>
+    <div class="slider-group">
+      <label>Car speed (m/s)</label>
+      <input type="range" id="s-speed" min="5" max="45" step="1" value="22">
+      <span class="val" id="v-speed">22</span>
+    </div>
+    <div class="slider-group">
+      <label>Wall columns</label>
+      <input type="range" id="s-cols" min="4" max="24" step="1" value="12">
+      <span class="val" id="v-cols">12</span>
+    </div>
+    <div class="slider-group">
+      <label>Wall rows</label>
+      <input type="range" id="s-rows" min="3" max="16" step="1" value="8">
+      <span class="val" id="v-rows">8</span>
+    </div>
+    <div class="slider-group">
+      <label>Wall depth</label>
+      <input type="range" id="s-depth" min="1" max="5" step="1" value="2">
+      <span class="val" id="v-depth">2</span>
+    </div>
+    <div class="slider-group">
+      <label>Brick mass (kg)</label>
+      <input type="range" id="s-mass" min="0.5" max="12" step="0.5" value="2.5">
+      <span class="val" id="v-mass">2.5</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONSTANTS & DEFAULTS (mandatory)
+// ============================================================
+const DEFAULTS = {
+  carSpeed: 22,
+  wallCols: 12,
+  wallRows: 8,
+  wallDepth: 2,
+  brickMass: 2.5,
+  brickW: 0.50,
+  brickH: 0.24,
+  gravity: 9.81,
+  brickFriction: 0.72,
+  brickRestitution: 0.18,
+  carMass: 1250,
+  carW: 4.2,
+  carH: 1.45,
+  groundFriction: 0.85,
+  scale: 80 // pixels per meter
+};
+
+// ============================================================
+// VEC2
+// ============================================================
+class Vec2 {
+  constructor(x = 0, y = 0) { this.x = x; this.y = y; }
+  add(v) { return new Vec2(this.x + v.x, this.y + v.y); }
+  sub(v) { return new Vec2(this.x - v.x, this.y - v.y); }
+  scale(s) { return new Vec2(this.x * s, this.y * s); }
+  dot(v) { return this.x * v.x + this.y * v.y; }
+  len() { return Math.sqrt(this.x * this.x + this.y * this.y); }
+  normalize() { const l = this.len() || 1; return new Vec2(this.x / l, this.y / l); }
+  perp() { return new Vec2(-this.y, this.x); }
+  static dist(a, b) { return a.sub(b).len(); }
+}
+
+// ============================================================
+// BODY
+// ============================================================
+class Body {
+  constructor(x, y, w, h, mass, friction, restitution) {
+    this.pos = new Vec2(x, y);
+    this.vel = new Vec2(0, 0);
+    this.angle = 0;
+    this.angVel = 0;
+    this.w = w;
+    this.h = h;
+    this.mass = mass;
+    this.invMass = mass > 0 ? 1 / mass : 0;
+    this.friction = friction;
+    this.restitution = restitution;
+    this.isStatic = false;
+    this.isLocked = false; // wall lock before impact
+    this.grounded = false;
+    this.color = null;
+  }
+
+  get invInertia() {
+    // 2D box inertia: (1/12) * m * (w^2 + h^2)
+    if (this.mass <= 0) return 0;
+    return 3 / (this.mass * (this.w * this.w + this.h * this.h));
+  }
+
+  worldPoint(local) {
+    const c = Math.cos(this.angle), s = Math.sin(this.angle);
+    return new Vec2(
+      this.pos.x + local.x * c - local.y * s,
+      this.pos.y + local.x * s + local.y * c
+    );
+  }
+
+  // AABB for broadphase (simplified, ignores rotation)
+  get aabb() {
+    const hw = this.w / 2, hh = this.h / 2;
+    return {
+      minX: this.pos.x - hw, maxX: this.pos.x + hw,
+      minY: this.pos.y - hh, maxY: this.pos.y + hh
+    };
+  }
+
+  aabbOverlap(other) {
+    const a = this.aabb, b = other.aabb;
+    return !(b.minX > a.maxX || b.maxX < a.minX || b.minY > a.maxY || b.maxY < a.minY);
+  }
+}
+
+// ============================================================
+// BRICK
+// ============================================================
+class Brick extends Body {
+  constructor(x, y, w, h, mass) {
+    super(x, y, w, h, mass, DEFAULTS.brickFriction, DEFAULTS.brickRestitution);
+    this.isStatic = false;
+    this.isLocked = true; // locked until first impact
+    this.color = this._randomColor();
+  }
+
+  _randomColor() {
+    const r = 140 + Math.floor(Math.random() * 80);
+    const g = 50 + Math.floor(Math.random() * 40);
+    const b = 30 + Math.floor(Math.random() * 30);
+    return `rgb(${r},${g},${b})`;
+  }
+
+  unlock() {
+    this.isLocked = false;
+    this.isStatic = false;
+  }
+}
+
+// ============================================================
+// CAR
+// ============================================================
+class Car extends Body {
+  constructor(x, y) {
+    super(x, y, DEFAULTS.carW, DEFAULTS.carH, DEFAULTS.carMass,
+          DEFAULTS.groundFriction, 0.1);
+    this.isStatic = false;
+    this.isLocked = false;
+    this.color = '#2196F3';
+  }
+
+  applyThrust(speed) {
+    this.vel.x = speed;
+  }
+}
+
+// ============================================================
+// PHYSICS ENGINE
+// ============================================================
+class PhysicsEngine {
+  constructor() {
+    this.bodies = [];
+    this.running = false;
+    this.elapsed = 0;
+    this.firstImpact = true;
+    this.cameraShake = 0;
+  }
+
+  addBody(b) { this.bodies.push(b); }
+  clear() { this.bodies = []; }
+
+  lockWall() {
+    for (const b of this.bodies) {
+      if (b instanceof Brick) b.isLocked = true;
+    }
+  }
+
+  unlockWall() {
+    if (!this.firstImpact) return;
+    this.firstImpact = false;
+    for (const b of this.bodies) {
+      if (b instanceof Brick) b.unlock();
+    }
+  }
+
+  step(dt) {
+    if (dt <= 0) return;
+    const subSteps = 3;
+    const subDt = dt / subSteps;
+    for (let s = 0; s < subSteps; s++) {
+      this._integrate(subDt);
+      this._resolveCollisions();
+      // Stack solver for wall stability
+      this._solveStack(subDt, 6);
+      this._checkWallUnlock();
+    }
+    this.elapsed += dt;
+  }
+
+  _integrate(dt) {
+    for (const b of this.bodies) {
+      if (b.invMass === 0 || b.isLocked) continue;
+
+      // Gravity
+      b.vel.y += DEFAULTS.gravity * dt;
+
+      // Position update
+      b.pos.x += b.vel.x * dt;
+      b.pos.y += b.vel.y * dt;
+
+      // Rotation
+      b.angle += b.angVel * dt;
+      b.angVel *= 0.999; // slight angular damping
+
+      // Ground friction
+      if (b.grounded && b.vel.y >= -0.01) {
+        const speed = Math.sqrt(b.vel.x * b.vel.x + b.vel.z ? b.vel.z * b.vel.z : 0);
+        if (speed > 0.001) {
+          const frictionForce = b.friction * DEFAULTS.gravity;
+          const decel = Math.min(frictionForce * dt, speed);
+          const dir = b.vel.x / (speed || 1);
+          b.vel.x -= dir * decel;
+          if (Math.abs(b.vel.x) < 0.001) b.vel.x = 0;
+        }
+      }
+    }
+  }
+
+  _resolveCollisions() {
+    const bodies = this.bodies;
+    for (let i = 0; i < bodies.length; i++) {
+      for (let j = i + 1; j < bodies.length; j++) {
+        const a = bodies[i], b = bodies[j];
+        if (a.invMass === 0 && b.invMass === 0) continue;
+
+        // Broadphase AABB
+        if (!a.aabbOverlap(b)) continue;
+
+        // Only resolve if at least one is unlocked
+        if (a.isLocked && b.isLocked) continue;
+
+        const contact = this._boxBoxOverlap(a, b);
+        if (!contact) continue;
+
+        // Determine which body to unlock
+        this.unlockWall();
+
+        const relVel = contact.pointA.sub(contact.pointB);
+        const va = a.vel, vb = b.vel;
+        const vRel = va.sub(vb);
+
+        const totalInvMass = a.invMass + b.invMass;
+        if (totalInvMass === 0) continue;
+
+        // Normal impulse
+        const vRelN = vRel.dot(contact.normal);
+        if (vRelN > 0) continue; // moving apart
+
+        const e = Math.min(a.restitution, b.restitution);
+        const jn = -(1 + e) * vRelN / totalInvMass;
+
+        const impulse = contact.normal.scale(jn);
+
+        if (a.invMass > 0) {
+          a.vel = a.vel.add(impulse.scale(a.invMass));
+          // Simple angular impulse approximation
+          const rA = contact.pointA.sub(a.pos);
+          a.angVel += rA.x * impulse.y - rA.y * impulse.x;
+        }
+        if (b.invMass > 0) {
+          b.vel = b.vel.sub(impulse.scale(b.invMass));
+          const rB = contact.pointB.sub(b.pos);
+          b.angVel -= rB.x * impulse.y - rB.y * impulse.x;
+        }
+
+        // Tangential friction impulse
+        let vTan = vRel.sub(contact.normal.scale(vRelN));
+        const tanLen = vTan.len();
+        if (tanLen > 0.001) {
+          const tanDir = vTan.scale(1 / tanLen);
+          const mu = Math.sqrt(a.friction * b.friction);
+          const jtMax = mu * Math.abs(jn);
+          const vRelT = vRel.dot(tanDir);
+          let jt = -vRelT / totalInvMass;
+          jt = Math.max(-jtMax, Math.min(jtMax, jt));
+
+          const tImpulse = tanDir.scale(jt);
+          if (a.invMass > 0) {
+            a.vel = a.vel.add(tImpulse.scale(a.invMass));
+          }
+          if (b.invMass > 0) {
+            b.vel = b.vel.sub(tImpulse.scale(b.invMass));
+          }
+        }
+
+        // Position correction to prevent sinking
+        const correction = contact.normal.scale(contact.depth * 0.5);
+        if (a.invMass > 0) a.pos = a.pos.add(correction.scale(a.invMass));
+        if (b.invMass > 0) b.pos = b.pos.sub(correction.scale(b.invMass));
+      }
+    }
+  }
+
+  _boxBoxOverlap(a, b) {
+    // Simplified AABB overlap with contact info (axis-aligned approximation)
+    const aw2 = a.w / 2, ah2 = a.h / 2;
+    const bw2 = b.w / 2, bh2 = b.h / 2;
+
+    const dx = b.pos.x - a.pos.x;
+    const dy = b.pos.y - a.pos.y;
+
+    const overlapX = (aw2 + bw2) - Math.abs(dx);
+    const overlapY = (ah2 + bh2) - Math.abs(dy);
+
+    if (overlapX <= 0 || overlapY <= 0) return null;
+
+    let normal, depth, pointA, pointB;
+
+    if (overlapX < overlapY) {
+      // X-axis collision
+      depth = overlapX;
+      normal = new Vec2(dx > 0 ? 1 : -1, 0);
+      pointA = new Vec2(a.pos.x + (dx > 0 ? aw2 : -aw2), a.pos.y);
+      pointB = new Vec2(b.pos.x + (dx > 0 ? -bw2 : bw2), b.pos.y);
+    } else {
+      // Y-axis collision
+      depth = overlapY;
+      normal = new Vec2(0, dy > 0 ? 1 : -1);
+      pointA = new Vec2(a.pos.x, a.pos.y + (dy > 0 ? ah2 : -ah2));
+      pointB = new Vec2(b.pos.x, b.pos.y + (dy > 0 ? -bh2 : bh2));
+    }
+
+    return { normal, depth, pointA, pointB };
+  }
+
+  _solveStack(dt, iterations) {
+    // Iterative position correction for stacked bricks
+    for (let iter = 0; iter < iterations; iter++) {
+      for (const b of this.bodies) {
+        if (b.invMass === 0 || b.isLocked) continue;
+
+        // Ground constraint
+        const groundY = 0;
+        if (b.pos.y - b.h / 2 < groundY) {
+          b.pos.y = groundY + b.h / 2;
+          if (b.vel.y < 0) b.vel.y = 0;
+          b.grounded = true;
+        } else {
+          b.grounded = false;
+        }
+
+        // Brick-to-brick position correction (simplified)
+        for (const other of this.bodies) {
+          if (other === b || other.invMass === 0 || b.invMass === 0) continue;
+          if (!b.aabbOverlap(other)) continue;
+
+          const aw2 = b.w / 2, ah2 = b.h / 2;
+          const ow2 = other.w / 2, oh2 = other.h / 2;
+          const dx = other.pos.x - b.pos.x;
+          const dy = other.pos.y - b.pos.y;
+
+          const overlapX = (aw2 + ow2) - Math.abs(dx);
+          const overlapY = (ah2 + oh2) - Math.abs(dy);
+
+          if (overlapX <= 0 || overlapY <= 0) continue;
+
+          let sep;
+          if (overlapX < overlapY) {
+            sep = overlapX;
+            const dir = dx > 0 ? 1 : -1;
+            if (b.invMass > 0) b.pos.x -= dir * sep * b.invMass * 0.5;
+            if (other.invMass > 0) other.pos.x += dir * sep * other.invMass * 0.5;
+          } else {
+            sep = overlapY;
+            const dir = dy > 0 ? 1 : -1;
+            if (b.invMass > 0) b.pos.y -= dir * sep * b.invMass * 0.5;
+            if (other.invMass > 0) other.pos.y += dir * sep * other.invMass * 0.5;
+          }
+        }
+      }
+    }
+  }
+
+  _checkWallUnlock() {
+    // If car is close to wall and moving, unlock
+    if (this.firstImpact) {
+      const car = this.bodies.find(b => b instanceof Car);
+      if (!car) return;
+      const bricks = this.bodies.filter(b => b instanceof Brick);
+      if (bricks.length === 0) return;
+
+      // Find closest brick to car
+      let minDist = Infinity;
+      for (const brick of bricks) {
+        const d = Vec2.dist(car.pos, brick.pos);
+        if (d < minDist) minDist = d;
+      }
+
+      // Unlock when car is within 3 meters of wall
+      if (minDist < 3.0 && car.vel.x > 1) {
+        this.unlockWall();
+      }
+    }
+  }
+
+  movingBrickCount() {
+    return this.bodies.filter(b => b instanceof Brick &&
+      (b.vel.x * b.vel.x + b.vel.y * b.vel.y > 0.0001)).length;
+  }
+}
+
+// ============================================================
+// RENDERER
+// ============================================================
+class Renderer {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+    this.particles = [];
+  }
+
+  resize() {
+    const rect = this.canvas.parentElement.getBoundingClientRect();
+    this.canvas.width = rect.width * devicePixelRatio;
+    this.canvas.height = rect.height * devicePixelRatio;
+    this.ctx.scale(devicePixelRatio, devicePixelRatio);
+    this.w = rect.width;
+    this.h = rect.height;
+  }
+
+  render(engine, cameraOffset) {
+    const ctx = this.ctx;
+    const scale = DEFAULTS.scale;
+    const groundY = this.h - 40;
+
+    // Camera shake
+    let shakeX = 0, shakeY = 0;
+    if (engine.cameraShake > 0) {
+      shakeX = (Math.random() - 0.5) * engine.cameraShake * 4;
+      shakeY = (Math.random() - 0.5) * engine.cameraShake * 4;
+      engine.cameraShake *= 0.9;
+      if (engine.cameraShake < 0.01) engine.cameraShake = 0;
+    }
+
+    ctx.save();
+    ctx.translate(shakeX, shakeY);
+
+    // Background gradient (sky)
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, groundY);
+    skyGrad.addColorStop(0, '#87CEEB');
+    skyGrad.addColorStop(1, '#E0F7FA');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, this.w, groundY);
+
+    // Ground
+    const groundGrad = ctx.createLinearGradient(0, groundY, 0, this.h);
+    groundGrad.addColorStop(0, '#4CAF50');
+    groundGrad.addColorStop(0.3, '#388E3C');
+    groundGrad.addColorStop(1, '#2E7D32');
+    ctx.fillStyle = groundGrad;
+    ctx.fillRect(0, groundY, this.w, this.h - groundY);
+
+    // Road surface
+    ctx.fillStyle = '#555';
+    ctx.fillRect(0, groundY, this.w, 12);
+    ctx.fillStyle = '#777';
+    ctx.fillRect(0, groundY, this.w, 2);
+
+    // Track line
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.setLineDash([20, 10]);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, groundY + 6);
+    ctx.lineTo(this.w, groundY + 6);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Camera follow
+    ctx.save();
+    const car = engine.bodies.find(b => b instanceof Car);
+    let camX = 0;
+    if (car && engine.running) {
+      const targetCam = -(car.pos.x - this.w * 0.25) * scale * 0.3;
+      camX = Math.max(targetCam, -(engine.bodies.length * 0.5 * scale * 0.3));
+    }
+    ctx.translate(camX, 0);
+
+    // Draw bricks
+    const bricks = engine.bodies.filter(b => b instanceof Brick);
+    for (const brick of bricks) {
+      this._drawBrick(ctx, brick, groundY);
+    }
+
+    // Draw car
+    if (car) {
+      this._drawCar(ctx, car, groundY);
+    }
+
+    ctx.restore();
+
+    // Draw particles (screen-space)
+    for (const p of this.particles) {
+      ctx.globalAlpha = p.life;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x, p.y, p.size, p.size);
+    }
+    ctx.globalAlpha = 1;
+
+    ctx.restore();
+  }
+
+  _drawBrick(ctx, brick, groundY) {
+    const scale = DEFAULTS.scale;
+    const sx = brick.pos.x * scale;
+    const sy = groundY - brick.pos.y * scale;
+    const sw = brick.w * scale;
+    const sh = brick.h * scale;
+
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(brick.angle);
+
+    // Main brick body
+    ctx.fillStyle = brick.color;
+    ctx.fillRect(-sw / 2, -sh / 2, sw, sh);
+
+    // Brick texture lines
+    ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-sw / 2, -sh / 2, sw, sh);
+
+    // Mortar lines
+    ctx.strokeStyle = 'rgba(200,200,200,0.3)';
+    ctx.lineWidth = 0.5;
+    if (sw > 20) {
+      ctx.beginPath();
+      ctx.moveTo(-sw / 2, 0);
+      ctx.lineTo(sw / 2, 0);
+      ctx.stroke();
+    }
+    if (sh > 15) {
+      ctx.beginPath();
+      ctx.moveTo(0, -sh / 2);
+      ctx.lineTo(0, sh / 2);
+      ctx.stroke();
+    }
+
+    // Highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+    ctx.fillRect(-sw / 2, -sh / 2, sw, sh * 0.3);
+
+    ctx.restore();
+  }
+
+  _drawCar(ctx, car, groundY) {
+    const scale = DEFAULTS.scale;
+    const sx = car.pos.x * scale;
+    const sy = groundY - car.pos.y * scale;
+    const sw = car.w * scale;
+    const sh = car.h * scale;
+
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(car.angle);
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.fillRect(-sw / 2 + 4, -sh / 2 + 4, sw, sh);
+
+    // Main body
+    ctx.fillStyle = car.color;
+    ctx.beginPath();
+    ctx.roundRect(-sw / 2, -sh / 2, sw, sh, 4);
+    ctx.fill();
+
+    // Cabin (upper portion)
+    ctx.fillStyle = '#1565C0';
+    const cabinW = sw * 0.5;
+    const cabinH = sh * 0.45;
+    ctx.beginPath();
+    ctx.roundRect(-cabinW / 2, -sh / 2 - cabinH * 0.3, cabinW, cabinH, 3);
+    ctx.fill();
+
+    // Windows
+    ctx.fillStyle = 'rgba(100,200,255,0.6)';
+    const winW = cabinW * 0.4;
+    const winH = cabinH * 0.6;
+    ctx.fillRect(-cabinW / 2 + 4, -sh / 2 - cabinH * 0.2, winW, winH);
+    ctx.fillRect(cabinW / 2 - winW - 4, -sh / 2 - cabinH * 0.2, winW, winH);
+
+    // Wheels
+    ctx.fillStyle = '#333';
+    const wheelR = sh * 0.18;
+    const wheelY = sh / 2 - wheelR + 2;
+    ctx.beginPath();
+    ctx.arc(-sw / 4, wheelY, wheelR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(sw / 4, wheelY, wheelR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Wheel rims
+    ctx.fillStyle = '#888';
+    ctx.beginPath();
+    ctx.arc(-sw / 4, wheelY, wheelR * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(sw / 4, wheelY, wheelR * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Headlights
+    ctx.fillStyle = '#FFEB3B';
+    ctx.fillRect(sw / 2 - 4, -sh / 2 + sh * 0.2, 4, sh * 0.15);
+    ctx.fillRect(sw / 2 - 4, -sh / 2 + sh * 0.55, 4, sh * 0.15);
+
+    // Taillights
+    ctx.fillStyle = '#F44336';
+    ctx.fillRect(-sw / 2, -sh / 2 + sh * 0.2, 3, sh * 0.15);
+    ctx.fillRect(-sw / 2, -sh / 2 + sh * 0.55, 3, sh * 0.15);
+
+    ctx.restore();
+  }
+
+  spawnParticles(x, y, count, color) {
+    const scale = DEFAULTS.scale;
+    for (let i = 0; i < count; i++) {
+      this.particles.push({
+        x: x * scale + (Math.random() - 0.5) * 40,
+        y: this.h - 40 - y * scale + (Math.random() - 0.5) * 20,
+        vx: (Math.random() - 0.5) * 80,
+        vy: -Math.random() * 60 - 20,
+        size: 2 + Math.random() * 4,
+        life: 0.6 + Math.random() * 0.4,
+        color: color || `rgba(180,160,120,`
+      });
+    }
+  }
+
+  updateParticles() {
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.x += p.vx * 0.016;
+      p.y += p.vy * 0.016;
+      p.vy += 100 * 0.016; // gravity on particles
+      p.life -= 1.5 * 0.016;
+      if (p.life <= 0) this.particles.splice(i, 1);
+    }
+  }
+}
+
+// ============================================================
+// UI CONTROLLER
+// ============================================================
+class UIController {
+  constructor() {
+    this.params = { ...DEFAULTS };
+    this.settings = ['speed', 'cols', 'rows', 'depth', 'mass'];
+    this._bind();
+  }
+
+  _bind() {
+    const map = {
+      's-speed': { key: 'speed', param: 'carSpeed' },
+      's-cols': { key: 'cols', param: 'wallCols' },
+      's-rows': { key: 'rows', param: 'wallRows' },
+      's-depth': { key: 'depth', param: 'wallDepth' },
+      's-mass': { key: 'mass', param: 'brickMass' }
+    };
+
+    for (const [inputId, info] of Object.entries(map)) {
+      const input = document.getElementById(inputId);
+      const valSpan = document.getElementById('v-' + info.key);
+      input.addEventListener('input', () => {
+        this.params[info.param] = parseFloat(input.value);
+        valSpan.textContent = input.value;
+      });
+    }
+  }
+
+  getParams() { return { ...this.params }; }
+}
+
+// ============================================================
+// MAIN
+// ============================================================
+function init() {
+  const canvas = document.getElementById('sim');
+  const renderer = new Renderer(canvas);
+  const engine = new PhysicsEngine();
+  const ui = new UIController();
+
+  const btnTest = document.getElementById('btn-test');
+  const btnReset = document.getElementById('btn-reset');
+
+  const telSpeed = document.getElementById('tel-speed');
+  const telTime = document.getElementById('tel-time');
+  const telMoving = document.getElementById('tel-moving');
+  const telTotal = document.getElementById('tel-total');
+
+  let running = false;
+  let lastTime = 0;
+  let animId = null;
+
+  function buildScene() {
+    engine.clear();
+    engine.firstImpact = true;
+    engine.running = false;
+    engine.elapsed = 0;
+
+    const p = ui.getParams();
+    const scale = DEFAULTS.scale;
+    const groundY = canvas.height / devicePixelRatio - 40;
+
+    // Car position (left side)
+    const car = new Car(1.5, DEFAULTS.carH / 2);
+    engine.addBody(car);
+
+    // Build wall (right side)
+    const brickW = p.brickW || DEFAULTS.brickW;
+    const brickH = DEFAULTS.brickH;
+    const mass = p.brickMass || DEFAULTS.brickMass;
+    const cols = p.wallCols || DEFAULTS.wallCols;
+    const rows = p.wallRows || DEFAULTS.wallRows;
+    const depth = p.wallDepth || DEFAULTS.wallDepth;
+
+    const wallStartX = 12; // meters from origin
+
+    for (let layer = 0; layer < depth; layer++) {
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          // Stagger: odd rows shifted by half brick width
+          const offset = (row % 2 === 1) ? brickW / 2 : 0;
+          const bx = wallStartX + col * brickW + offset + layer * 0.1;
+          const by = brickH / 2 + row * brickH;
+
+          const brick = new Brick(bx, by, brickW, brickH, mass);
+          engine.addBody(brick);
+        }
+      }
+    }
+
+    engine.lockWall();
+    telTotal.textContent = engine.bodies.filter(b => b instanceof Brick).length;
+
+    // Render initial state
+    renderer.render(engine, 0);
+  }
+
+  function gameLoop(timestamp) {
+    if (!running) return;
+
+    if (!lastTime) lastTime = timestamp;
+    let dt = (timestamp - lastTime) / 1000;
+    lastTime = timestamp;
+
+    // Clamp dt
+    dt = Math.min(dt, 0.05);
+
+    // Physics step
+    engine.step(dt);
+
+    // Spawn particles on impact
+    const car = engine.bodies.find(b => b instanceof Car);
+    if (car && engine.firstImpact === false && engine.elapsed < 0.2) {
+      if (Math.random() < 0.3) {
+        renderer.spawnParticles(car.pos.x, 0.5, 3, 'rgba(180,160,120,');
+      }
+    }
+
+    renderer.updateParticles();
+    renderer.render(engine, 0);
+
+    // Telemetry
+    if (car) {
+      const speed = Math.sqrt(car.vel.x * car.vel.x + car.vel.y * car.vel.y);
+      telSpeed.textContent = speed.toFixed(1);
+    }
+    telTime.textContent = engine.elapsed.toFixed(2);
+    telMoving.textContent = engine.movingBrickCount();
+
+    animId = requestAnimationFrame(gameLoop);
+  }
+
+  function startTest() {
+    if (running) return;
+    buildScene();
+    running = true;
+    lastTime = 0;
+    btnTest.disabled = true;
+
+    const car = engine.bodies.find(b => b instanceof Car);
+    if (car) {
+      const p = ui.getParams();
+      car.applyThrust(p.carSpeed || DEFAULTS.carSpeed);
+    }
+
+    engine.running = true;
+    animId = requestAnimationFrame(gameLoop);
+  }
+
+  function resetScene() {
+    running = false;
+    if (animId) cancelAnimationFrame(animId);
+    btnTest.disabled = false;
+    lastTime = 0;
+    buildScene();
+
+    telSpeed.textContent = '0.0';
+    telTime.textContent = '0.00';
+  }
+
+  btnTest.addEventListener('click', startTest);
+  btnReset.addEventListener('click', resetScene);
+
+  // Initial build
+  buildScene();
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
