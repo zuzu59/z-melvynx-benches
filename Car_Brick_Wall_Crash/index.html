@@ -337,8 +337,8 @@ class PhysicsEngine {
     for (const b of this.bodies) {
       if (b.invMass === 0 || b.isLocked) continue;
 
-      // Gravity
-      b.vel.y += DEFAULTS.gravity * dt;
+      // Gravity (negative = down, since y=0 is bottom)
+      b.vel.y -= DEFAULTS.gravity * dt;
 
       // Position update
       b.pos.x += b.vel.x * dt;
@@ -346,23 +346,23 @@ class PhysicsEngine {
 
       // Rotation
       b.angle += b.angVel * dt;
-      b.angVel *= 0.995; // angular damping
+      b.angVel *= 0.95; // stronger angular damping
 
       // Ground friction (stronger)
       if (b.grounded && b.vel.y >= -0.01) {
         const vx = b.vel.x;
         const speed = Math.abs(vx);
         if (speed > 0.001) {
-          const frictionForce = b.friction * DEFAULTS.gravity * 3;
+          const frictionForce = b.friction * DEFAULTS.gravity * 0.2;
           const decel = Math.min(frictionForce * dt, speed);
           b.vel.x -= Math.sign(vx) * decel;
           if (Math.abs(b.vel.x) < 0.001) b.vel.x = 0;
         }
       }
 
-      // Air resistance
-      b.vel.x *= 0.995;
-      b.vel.y *= 0.995;
+      // Air resistance + velocity damping
+      b.vel.x *= 0.98;
+      b.vel.y *= 0.98;
     }
   }
 
@@ -478,9 +478,9 @@ class PhysicsEngine {
         if (b.invMass === 0 || b.isLocked) continue;
 
         // Ground constraint
-        const groundY = 0;
-        if (b.pos.y - b.h / 2 < groundY) {
-          b.pos.y = groundY + b.h / 2;
+        const groundY = b.h / 2;
+        if (b.pos.y < groundY) {
+          b.pos.y = groundY;
           if (b.vel.y < 0) b.vel.y = 0;
           b.grounded = true;
         } else {
@@ -616,23 +616,27 @@ class Renderer {
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Camera follow
+    // Camera follow - simple tracking on car
     ctx.save();
     const car = engine.bodies.find(b => b instanceof Car);
     let camX = 0;
-    if (car && engine.running) {
-      // Track car AND brick spread after impact
-      const bricks = engine.bodies.filter(b => b instanceof Brick);
-      let maxBrickX = 0;
-      for (const brick of bricks) {
-        if (Math.abs(brick.vel.x) > 0.1 || Math.abs(brick.pos.x - 12) > 2) {
-          maxBrickX = Math.max(maxBrickX, brick.pos.x);
-        }
+    
+    if (car) {
+      // Center camera 40% to the left of car
+      camX = -(car.pos.x * scale - this.w * 0.4);
+      
+      // Don't scroll past the start
+      camX = Math.max(camX, -100);
+      
+      // Scroll to show wall when car approaches
+      const wallX = 12 * scale;
+      const carScreenX = car.pos.x * scale;
+      if (carScreenX > wallX - this.w * 0.5) {
+        // Car is near wall, center on wall area
+        camX = -(wallX - this.w * 0.5);
       }
-      const focusX = Math.max(car.pos.x, maxBrickX + 3);
-      const targetCam = -(focusX - this.w * 0.3) * scale * 0.25;
-      camX = Math.max(targetCam, -500);
     }
+    
     ctx.translate(camX, 0);
 
     // Draw bricks
