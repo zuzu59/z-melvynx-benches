@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ornith Q8.1</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0a0a0f;
+  color: #e0e0e0;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+#header {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  padding: 8px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #2a2a4a;
+  z-index: 100;
+}
+#header h1 {
+  font-size: 16px;
+  font-weight: 600;
+  background: linear-gradient(90deg, #00d2ff, #7b2ff7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 0.5px;
+}
+#telemetry {
+  display: flex;
+  gap: 20px;
+  font-size: 12px;
+  font-family: 'Courier New', monospace;
+}
+#telemetry span { color: #888; }
+#telemetry .val { color: #00d2ff; font-weight: bold; }
+#main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+#canvas-wrap {
+  flex: 1;
+  position: relative;
+  background: #0d0d15;
+}
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+#panel {
+  width: 280px;
+  background: #111118;
+  border-left: 1px solid #2a2a4a;
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+#panel h2 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #7b2ff7;
+  margin-bottom: 4px;
+}
+.btn-row {
+  display: flex;
+  gap: 8px;
+}
+button {
+  padding: 10px 18px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+#btn-test {
+  background: linear-gradient(135deg, #00d2ff, #0090ff);
+  color: #000;
+  flex: 2;
+}
+#btn-test:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(0,210,255,0.3); }
+#btn-test:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+#btn-reset {
+  background: #2a2a4a;
+  color: #ccc;
+  flex: 1;
+}
+#btn-reset:hover { background: #3a3a5a; }
+.setting {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.setting label {
+  font-size: 11px;
+  color: #888;
+  display: flex;
+  justify-content: space-between;
+}
+.setting label span { color: #00d2ff; font-family: 'Courier New', monospace; }
+.setting input[type="range"] {
+  -webkit-appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: #2a2a4a;
+  outline: none;
+}
+.setting input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #7b2ff7;
+  cursor: pointer;
+}
+#status {
+  font-size: 11px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #1a1a2e;
+  border: 1px solid #2a2a4a;
+  text-align: center;
+}
+#status.running { border-color: #00d2ff; color: #00d2ff; }
+#status.done { border-color: #4caf50; color: #4caf50; }
+</style>
+</head>
+<body>
+<div id="header">
+  <h1>Ornith Q8.1</h1>
+  <div id="telemetry">
+    <span>Speed: <span class="val" id="tel-speed">0.0</span> m/s</span>
+    <span>Time: <span class="val" id="tel-time">0.0</span>s</span>
+    <span>Moving: <span class="val" id="tel-moving">0</span></span>
+  </div>
+</div>
+<div id="main">
+  <div id="canvas-wrap">
+    <canvas id="canvas"></canvas>
+  </div>
+  <div id="panel">
+    <h2>Controls</h2>
+    <div class="btn-row">
+      <button id="btn-test">▶ Test</button>
+      <button id="btn-reset">↺ Reset</button>
+    </div>
+    <div id="status">Ready to simulate</div>
+
+    <h2>Car</h2>
+    <div class="setting">
+      <label>Speed <span id="val-speed">22</span> m/s</label>
+      <input type="range" id="inp-speed" min="5" max="45" step="0.5" value="22">
+    </div>
+    <div class="setting">
+      <label>Mass <span id="val-cmass">1250</span> kg</label>
+      <input type="range" id="inp-cmass" min="500" max="3000" step="50" value="1250">
+    </div>
+
+    <h2>Wall</h2>
+    <div class="setting">
+      <label>Columns <span id="val-cols">12</span></label>
+      <input type="range" id="inp-cols" min="4" max="24" step="1" value="12">
+    </div>
+    <div class="setting">
+      <label>Rows <span id="val-rows">8</span></label>
+      <input type="range" id="inp-rows" min="3" max="16" step="1" value="8">
+    </div>
+    <div class="setting">
+      <label>Layers <span id="val-layers">2</span></label>
+      <input type="range" id="inp-layers" min="1" max="5" step="1" value="2">
+    </div>
+    <div class="setting">
+      <label>Brick Mass <span id="val-bmass">2.5</span> kg</label>
+      <input type="range" id="inp-bmass" min="0.5" max="12" step="0.1" value="2.5">
+    </div>
+
+    <h2>Physics</h2>
+    <div class="setting">
+      <label>Brick Friction <span id="val-bfric">0.72</span></label>
+      <input type="range" id="inp-bfric" min="0.1" max="1.5" step="0.01" value="0.72">
+    </div>
+    <div class="setting">
+      <label>Restitution <span id="val-rest">0.18</span></label>
+      <input type="range" id="inp-rest" min="0" max="0.8" step="0.01" value="0.18">
+    </div>
+    <div class="setting">
+      <label>Ground Friction <span id="val-gfric">0.85</span></label>
+      <input type="range" id="inp-gfric" min="0.1" max="2.0" step="0.01" value="0.85">
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+// === DEFAULTS ===
+const DEFAULTS = {
+  carSpeed: 22,
+  carMass: 1250,
+  cols: 12,
+  rows: 8,
+  layers: 2,
+  brickMass: 2.5,
+  brickW: 0.50,
+  brickH: 0.24,
+  gravity: 9.81,
+  brickFriction: 0.72,
+  restitution: 0.18,
+  carW: 4.2,
+  carH: 1.45,
+  groundFriction: 0.85,
+  scale: 80,
+  simFPS: 120
+};
+
+let params = { ...DEFAULTS };
+let state = 'ready'; // ready | running | done
+let simTime = 0;
+let bodies = [];
+let particles = [];
+let shakeIntensity = 0;
+let carHasHitWall = false;
+
+// === UI BINDING ===
+const bindings = [
+  ['inp-speed','val-speed','carSpeed'],
+  ['inp-cmass','val-cmass','carMass'],
+  ['inp-cols','val-cols','cols'],
+  ['inp-rows','val-rows','rows'],
+  ['inp-layers','val-layers','layers'],
+  ['inp-bmass','val-bmass','brickMass'],
+  ['inp-bfric','val-bfric','brickFriction'],
+  ['inp-rest','val-rest','restitution'],
+  ['inp-gfric','val-gfric','groundFriction'],
+];
+bindings.forEach(([inp, valId, key]) => {
+  const inpEl = document.getElementById(inp);
+  const valEl = document.getElementById(valId);
+  inpEl.addEventListener('input', () => {
+    params[key] = parseFloat(inpEl.value);
+    valEl.textContent = inpEl.value;
+  });
+});
+
+// === BODY CLASS ===
+class Body {
+  constructor(x, y, w, h, mass, isCar) {
+    this.x = x;
+    this.y = y;
+    this.w = w;
+    this.h = h;
+    this.mass = mass;
+    this.invMass = mass > 0 ? 1 / mass : 0;
+    this.vx = 0;
+    this.vy = 0;
+    this.angle = 0;
+    this.angVel = 0;
+    this.isCar = isCar;
+    this.friction = isCar ? params.groundFriction : params.brickFriction;
+    this.rest = params.restitution;
+    this.settled = false;
+  }
+  get corners() {
+    const c = Math.cos(this.angle), s = Math.sin(this.angle);
+    const hw = this.w / 2, hh = this.h / 2;
+    return [
+      { x: this.x + c * (-hw) - s * (-hh), y: this.y + s * (-hw) + c * (-hh) },
+      { x: this.x + c * (hw)  - s * (-hh), y: this.y + s * (hw)  + c * (-hh) },
+      { x: this.x + c * (hw)  - s * (hh),  y: this.y + s * (hw)  + c * (hh) },
+      { x: this.x + c * (-hw) - s * (hh),  y: this.y + s * (-hw) + c * (hh) },
+    ];
+  }
+  get bottom() {
+    let minY = Infinity;
+    for (const c of this.corners) {
+      if (c.y < minY) minY = c.y;
+    }
+    return minY;
+  }
+}
+
+// === SAT COLLISION DETECTION ===
+function projectPolygon(points, axis) {
+  let min = Infinity, max = -Infinity;
+  for (const p of points) {
+    const proj = p.x * axis.x + p.y * axis.y;
+    if (proj < min) min = proj;
+    if (proj > max) max = proj;
+  }
+  return { min, max };
+}
+
+function getAxes(rect) {
+  const axes = [];
+  for (let i = 0; i < 4; i++) {
+    const j = (i + 1) % 4;
+    const dx = rect.corners[j].x - rect.corners[i].x;
+    const dy = rect.corners[j].y - rect.corners[i].y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    axes.push({ x: -dy / len, y: dx / len });
+  }
+  return axes;
+}
+
+function satCollide(a, b) {
+  const axes = [...getAxes(a), ...getAxes(b)];
+  for (const axis of axes) {
+    const pa = projectPolygon(a.corners, axis);
+    const pb = projectPolygon(b.corners, axis);
+    const overlap = Math.min(pa.max - pb.min, pb.max - pa.min);
+    if (overlap <= 0) return null;
+  }
+  // Find normal (smallest overlap axis)
+  let minOverlap = Infinity, minAxis = null;
+  for (const axis of axes) {
+    const pa = projectPolygon(a.corners, axis);
+    const pb = projectPolygon(b.corners, axis);
+    const ov = Math.min(pa.max - pb.min, pb.max - pa.min);
+    if (ov < minOverlap) {
+      minOverlap = ov;
+      minAxis = axis;
+    }
+  }
+  // Ensure normal points from a to b
+  const dx = b.x - a.x, dy = b.y - a.y;
+  if (dx * minAxis.x + dy * minAxis.y < 0) {
+    minAxis = { x: -minAxis.x, y: -minAxis.y };
+  }
+  return { normal: minAxis, depth: minOverlap };
+}
+
+// === PARTICLE SYSTEM ===
+class Particle {
+  constructor(x, y, vx, vy, life, color, size) {
+    this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+    this.life = life; this.maxLife = life;
+    this.color = color; this.size = size;
+  }
+}
+
+function spawnDust(x, y, count, strength) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = (0.5 + Math.random() * 2) * strength;
+    particles.push(new Particle(
+      x, y,
+      Math.cos(angle) * speed,
+      Math.sin(angle) * speed - Math.random() * 1.5,
+      0.4 + Math.random() * 0.4,
+      `hsl(${30 + Math.random() * 15}, ${40 + Math.random() * 20}%, ${50 + Math.random() * 20}%)`,
+      1 + Math.random() * 3
+    ));
+  }
+}
+
+// === SCENE SETUP ===
+function createScene() {
+  bodies = [];
+  particles = [];
+  carHasHitWall = false;
+  const W = canvas.width, H = canvas.height;
+  const scale = params.scale;
+  const groundY = H - 60;
+  const brickW = params.brickW * scale;
+  const brickH = params.brickH * scale;
+
+  // Bricks - stacked precisely with no gaps
+  const cols = params.cols, rows = params.rows, layers = params.layers;
+  const wallStartX = W * 0.62;
+  const stagger = brickW * 0.5;
+
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      for (let layer = 0; layer < layers; layer++) {
+        const offsetX = (row % 2 === 0) ? 0 : stagger;
+        const bx = wallStartX + col * brickW + offsetX;
+        // Place bricks exactly on top of each other, bottom row on ground
+        const by = groundY - brickH / 2 - row * brickH;
+        const b = new Body(bx, by, brickW, brickH, params.brickMass, false);
+        b.friction = params.brickFriction;
+        b.rest = params.restitution;
+        bodies.push(b);
+      }
+    }
+  }
+
+  // Car
+  const carX = W * 0.12;
+  const carY = groundY - params.carH * scale / 2;
+  const car = new Body(carX, carY, params.carW * scale, params.carH * scale, params.carMass, true);
+  car.vx = params.carSpeed * scale;
+  bodies.push(car);
+
+  return { groundY, scale };
+}
+
+let scene = createScene();
+
+// === PHYSICS STEP ===
+function physicsStep(dt) {
+  const { groundY, scale } = scene;
+  const grav = params.gravity * scale;
+
+  // Sub-step the car to prevent tunneling
+  const carSubSteps = 4;
+  const subDt = dt / carSubSteps;
+  
+  for (let sub = 0; sub < carSubSteps; sub++) {
+    // Update car with sub-stepping
+    const car = bodies.find(b => b.isCar);
+    if (car && state === 'running') {
+      car.x += car.vx * subDt;
+      car.y += car.vy * subDt;
+      car.angle += car.angVel * subDt;
+      
+      // Ground constraint for car
+      const carBottom = car.y + car.h / 2;
+      if (carBottom >= groundY) {
+        car.y = groundY - car.h / 2;
+        if (car.vy > 0) car.vy *= -car.rest;
+        else car.vy = 0;
+      }
+      
+      // Ground friction
+      if (carBottom >= groundY - 2) {
+        car.vx *= (1 - params.groundFriction * 3 * subDt);
+        if (Math.abs(car.vx) < 10) car.vx = 0;
+      }
+    }
+  }
+
+  // Mark car as having hit wall area
+  const car = bodies.find(b => b.isCar);
+  if (car && !carHasHitWall && car.x > canvas.width * 0.5) {
+    carHasHitWall = true;
+  }
+
+  // Update bricks only after car hits or if they're already moving
+  const bricks = bodies.filter(b => !b.isCar);
+  for (const b of bricks) {
+    // Only simulate bricks that are already moving or after car hits
+    if (!carHasHitWall && Math.abs(b.vx) < 1 && Math.abs(b.vy) < 1 && b.angle === 0) {
+      continue;
+    }
+
+    // Gravity
+    b.vy += grav * dt;
+
+    // Apply velocity
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    b.angle += b.angVel * dt;
+
+    // Air damping
+    b.vx *= (1 - 0.5 * dt);
+    b.vy *= (1 - 0.5 * dt);
+    
+    // Angular damping
+    b.angVel *= (1 - 3.0 * dt);
+
+    // Ground constraint
+    const groundContact = b.bottom >= groundY - 1;
+    if (groundContact) {
+      const penetration = b.bottom - groundY;
+      b.y -= penetration;
+      
+      if (b.vy > 0) {
+        b.vy *= -b.rest * 0.5;
+        b.vx *= (1 - b.friction * 0.8);
+      } else {
+        b.vy = 0;
+      }
+      
+      b.vx *= (1 - b.friction * 2 * dt);
+      b.angVel *= 0.3;
+    }
+
+    // Wall bounds
+    if (b.x - b.w / 2 < 0) { b.x = b.w / 2; b.vx *= -b.rest; }
+    if (b.x + b.w / 2 > canvas.width) { b.x = canvas.width - b.w / 2; b.vx *= -b.rest; }
+    if (b.y - b.h / 2 < 0) { b.y = b.h / 2; b.vy *= -b.rest; }
+  }
+
+  // Collision resolution with sub-stepping for car
+  for (let iter = 0; iter < 10; iter++) {
+    for (let i = 0; i < bodies.length; i++) {
+      for (let j = i + 1; j < bodies.length; j++) {
+        const a = bodies[i], b = bodies[j];
+        
+        // Skip static bricks before impact
+        if (!carHasHitWall && !a.isCar && !b.isCar) {
+          const aStill = Math.abs(a.vx) < 1 && Math.abs(a.vy) < 1 && a.angle === 0;
+          const bStill = Math.abs(b.vx) < 1 && Math.abs(b.vy) < 1 && b.angle === 0;
+          if (aStill && bStill) continue;
+        }
+        
+        const col = satCollide(a, b);
+        if (!col) continue;
+
+        const { normal, depth } = col;
+        const totalInvMass = a.invMass + b.invMass;
+        if (totalInvMass === 0) continue;
+
+        // Strong positional correction to prevent tunneling
+        const correctionMag = depth / totalInvMass * 1.2;
+        const correction = { x: normal.x * correctionMag, y: normal.y * correctionMag };
+        
+        if (!a.isCar || carHasHitWall) {
+          a.x -= correction.x * a.invMass * 1.5;
+          a.y -= correction.y * a.invMass * 1.5;
+        }
+        if (!b.isCar || carHasHitWall) {
+          b.x += correction.x * b.invMass * 1.5;
+          b.y += correction.y * b.invMass * 1.5;
+        }
+
+        // Relative velocity
+        const raX = (b.y - a.y) * 0.5;
+        const raY = -(b.x - a.x) * 0.5;
+        const rbX = -(b.y - a.y) * 0.5;
+        const rbY = (b.x - a.x) * 0.5;
+
+        const vaX = a.vx - a.angVel * raY;
+        const vaY = a.vy + a.angVel * raX;
+        const vbX = b.vx - b.angVel * rbY;
+        const vbY = b.vy + b.angVel * rbX;
+
+        const rvx = vaX - vbX;
+        const rvy = vaY - vbY;
+        const relVelAlongNormal = rvx * normal.x + rvy * normal.y;
+
+        if (relVelAlongNormal > 0) continue;
+
+        const raCrossN = raX * normal.y - raY * normal.x;
+        const rbCrossN = rbX * normal.y - rbY * normal.x;
+
+        const invMassSum = a.invMass + b.invMass +
+          raCrossN * raCrossN * a.invMass +
+          rbCrossN * rbCrossN * b.invMass;
+
+        let e = car && (a.isCar || b.isCar) ? 0.3 : Math.min(a.rest, b.rest);
+        let jImpulse = -(1 + e) * relVelAlongNormal / invMassSum;
+
+        // For car-brick collisions, transfer more momentum to bricks
+        if ((a.isCar && !b.isCar) || (!a.isCar && b.isCar)) {
+          jImpulse *= 1.2; // Boost impact
+          // Clamp brick velocity to prevent explosion
+          const brick = !a.isCar ? a : b;
+          const brickSpeed = Math.sqrt(brick.vx * brick.vx + brick.vy * brick.vy);
+          if (brickSpeed > 2000) {
+            const scale = 2000 / brickSpeed;
+            brick.vx *= scale;
+            brick.vy *= scale;
+          }
+        }
+
+        const impulseX = jImpulse * normal.x;
+        const impulseY = jImpulse * normal.y;
+
+        if (!a.isCar || carHasHitWall) {
+          a.vx += impulseX * a.invMass;
+          a.vy += impulseY * a.invMass;
+          a.angVel += raCrossN * jImpulse * a.invMass;
+        }
+        if (!b.isCar || carHasHitWall) {
+          b.vx -= impulseX * b.invMass;
+          b.vy -= impulseY * b.invMass;
+          b.angVel -= rbCrossN * jImpulse * b.invMass;
+        }
+
+        // Friction impulse
+        const tx = rvx - normal.x * relVelAlongNormal;
+        const ty = rvy - normal.y * relVelAlongNormal;
+        const tLen = Math.sqrt(tx * tx + ty * ty);
+        if (tLen > 0.001) {
+          const tnx = tx / tLen, tny = ty / tLen;
+          const raCrossT = raX * tny - raY * tnx;
+          const rbCrossT = rbX * tny - rbY * tnx;
+          const invMassSumT = a.invMass + b.invMass +
+            raCrossT * raCrossT * a.invMass +
+            rbCrossT * rbCrossT * b.invMass;
+          let jt = -tLen / invMassSumT;
+          const mu = (a.friction + b.friction) / 2;
+          if (Math.abs(jt) > jImpulse * mu) {
+            jt = jImpulse * mu * (jt > 0 ? 1 : -1);
+          }
+          if (!a.isCar || carHasHitWall) {
+            a.vx += jt * tnx * a.invMass;
+            a.vy += jt * tny * a.invMass;
+            a.angVel += raCrossT * jt * a.invMass;
+          }
+          if (!b.isCar || carHasHitWall) {
+            b.vx -= jt * tnx * b.invMass;
+            b.vy -= jt * tny * b.invMass;
+            b.angVel -= rbCrossT * jt * b.invMass;
+          }
+        }
+
+        // Dust on impact
+        const impactSpeed = Math.abs(relVelAlongNormal);
+        if (impactSpeed > 80 && (!b.isCar || !a.isCar)) {
+          const cx = (a.x + b.x) / 2;
+          const cy = (a.y + b.y) / 2;
+          spawnDust(cx, cy, Math.floor(impactSpeed / 40), impactSpeed / 120);
+          shakeIntensity = Math.min(impactSpeed / 40, 15);
+        }
+      }
+    }
+  }
+
+  // After collision resolution, ensure car doesn't pass through wall
+  if (car && carHasHitWall) {
+    // Push car back if it's inside the wall area
+    const wallLeft = canvas.width * 0.62;
+    if (car.x + car.w / 2 > wallLeft && car.vx > 0) {
+      car.x = wallLeft - car.w / 2 - 1;
+      car.vx *= -0.3; // Slight bounce back
+    }
+  }
+
+  // Update particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx * 60 * dt;
+    p.y += p.vy * 60 * dt;
+    p.vy += 3 * dt;
+    p.life -= dt;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+// === RENDERING ===
+function render() {
+  const W = canvas.width, H = canvas.height;
+  const { groundY } = scene;
+
+  // Clear
+  ctx.fillStyle = '#0d0d15';
+  ctx.fillRect(0, 0, W, H);
+
+  // Camera shake
+  let sx = 0, sy = 0;
+  if (shakeIntensity > 0) {
+    sx = (Math.random() - 0.5) * shakeIntensity * 2;
+    sy = (Math.random() - 0.5) * shakeIntensity * 2;
+    shakeIntensity *= 0.85;
+    if (shakeIntensity < 0.3) shakeIntensity = 0;
+  }
+  ctx.save();
+  ctx.translate(sx, sy);
+
+  // Ground
+  const groundGrad = ctx.createLinearGradient(0, groundY, 0, H);
+  groundGrad.addColorStop(0, '#2a2a3a');
+  groundGrad.addColorStop(1, '#1a1a25');
+  ctx.fillStyle = groundGrad;
+  ctx.fillRect(0, groundY, W, H - groundY);
+  ctx.strokeStyle = '#4a4a6a';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, groundY);
+  ctx.lineTo(W, groundY);
+  ctx.stroke();
+
+  // Grid lines (subtle)
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  ctx.lineWidth = 1;
+  for (let gx = 0; gx < W; gx += params.scale) {
+    ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, groundY); ctx.stroke();
+  }
+
+  // Bricks
+  for (const b of bodies) {
+    if (b.isCar) continue;
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    ctx.rotate(b.angle);
+
+    const grad = ctx.createLinearGradient(-b.w / 2, -b.h / 2, b.w / 2, b.h / 2);
+    grad.addColorStop(0, '#c0392b');
+    grad.addColorStop(0.5, '#e74c3c');
+    grad.addColorStop(1, '#a93226');
+    ctx.fillStyle = grad;
+    ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h);
+
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-b.w / 2, -b.h / 2, b.w, b.h);
+
+    // Brick texture lines
+    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+    ctx.beginPath();
+    ctx.moveTo(-b.w / 2, 0);
+    ctx.lineTo(b.w / 2, 0);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, -b.h / 2);
+    ctx.lineTo(0, b.h / 2);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  // Car
+  const car = bodies.find(b => b.isCar);
+  if (car) {
+    ctx.save();
+    ctx.translate(car.x, car.y);
+    ctx.rotate(car.angle);
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fillRect(-car.w / 2 + 4, -car.h / 2 + 4, car.w, car.h);
+
+    // Body
+    const carGrad = ctx.createLinearGradient(-car.w / 2, -car.h / 2, car.w / 2, car.h / 2);
+    carGrad.addColorStop(0, '#2196F3');
+    carGrad.addColorStop(0.5, '#42A5F5');
+    carGrad.addColorStop(1, '#1976D2');
+    ctx.fillStyle = carGrad;
+
+    // Main body
+    const bw = car.w * 0.85, bh = car.h * 0.55;
+    const bx = -bw / 2, by = -bh / 2;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, bw, bh, 4);
+    ctx.fill();
+
+    // Cabin
+    const cw = car.w * 0.4, ch = car.h * 0.35;
+    const cx2 = -cw / 2 + car.w * 0.15, cy2 = -bh / 2 - ch + 2;
+    ctx.fillStyle = '#1565C0';
+    ctx.beginPath();
+    ctx.roundRect(cx2, cy2, cw, ch, 3);
+    ctx.fill();
+
+    // Windows
+    ctx.fillStyle = 'rgba(150,220,255,0.5)';
+    ctx.fillRect(cx2 + 3, cy2 + 2, cw - 6, ch * 0.5);
+
+    // Wheels
+    ctx.fillStyle = '#333';
+    const wheelR = car.h * 0.15;
+    const wheelPositions = [
+      { x: -bw / 2 + bw * 0.2, y: bh / 2 - 2 },
+      { x: bw / 2 - bw * 0.2, y: bh / 2 - 2 },
+    ];
+    for (const wp of wheelPositions) {
+      ctx.beginPath();
+      ctx.arc(wp.x, wp.y, wheelR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#555';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // Headlights
+    ctx.fillStyle = '#FFD54F';
+    ctx.fillRect(bw / 2 - 3, -bh / 2 + 2, 3, bh * 0.3);
+    ctx.fillRect(bw / 2 - 3, bh / 2 - bh * 0.3 - 2, 3, bh * 0.3);
+
+    // Taillights
+    ctx.fillStyle = '#F44336';
+    ctx.fillRect(-bw / 2, -bh / 2 + 2, 3, bh * 0.3);
+    ctx.fillRect(-bw / 2, bh / 2 - bh * 0.3 - 2, 3, bh * 0.3);
+
+    ctx.restore();
+  }
+
+  // Particles
+  for (const p of particles) {
+    const alpha = p.life / p.maxLife;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.restore(); // camera shake
+
+  // Scale indicator
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.font = '10px monospace';
+  ctx.fillText(`${(params.scale / 80).toFixed(0)}m`, 15, groundY - 10);
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.beginPath();
+  ctx.moveTo(15, groundY - 15);
+  ctx.lineTo(15 + params.scale, groundY - 15);
+  ctx.stroke();
+}
+
+// === TELEMETRY ===
+function updateTelemetry() {
+  const car = bodies.find(b => b.isCar);
+  const speed = car ? Math.abs(car.vx) / params.scale : 0;
+  document.getElementById('tel-speed').textContent = speed.toFixed(1);
+  document.getElementById('tel-time').textContent = simTime.toFixed(1);
+
+  let moving = 0;
+  for (const b of bodies) {
+    if (!b.isCar) {
+      const spd = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+      if (spd > 5) moving++;
+    }
+  }
+  document.getElementById('tel-moving').textContent = moving;
+}
+
+// === MAIN LOOP ===
+let lastTime = 0;
+const fixedDt = 1 / DEFAULTS.simFPS;
+let accumulator = 0;
+let frameCount = 0;
+let lastFpsTime = 0;
+let fps = 60;
+
+function loop(timestamp) {
+  if (!lastTime) lastTime = timestamp;
+  let frameDt = (timestamp - lastTime) / 1000;
+  lastTime = timestamp;
+  if (frameDt > 0.1) frameDt = 0.1;
+
+  // FPS counter
+  frameCount++;
+  if (timestamp - lastFpsTime >= 1000) {
+    fps = frameCount;
+    frameCount = 0;
+    lastFpsTime = timestamp;
+  }
+
+  if (state === 'running') {
+    accumulator += frameDt;
+    // Fixed timestep physics for consistency
+    let steps = 0;
+    while (accumulator >= fixedDt && steps < 4) {
+      physicsStep(fixedDt);
+      simTime += fixedDt;
+      accumulator -= fixedDt;
+      steps++;
+    }
+    // Catch up if too far behind
+    if (accumulator > fixedDt * 4) {
+      accumulator = 0;
+    }
+
+    // Check if settled
+    const car = bodies.find(b => b.isCar);
+    const carSettled = car ? (Math.abs(car.vx) < 5 && car.x > canvas.width * 0.5) : true;
+    let allBricksSettled = true;
+    for (const b of bodies) {
+      if (b.isCar) continue;
+      const spd = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+      if (spd > 8) { allBricksSettled = false; break; }
+    }
+    if ((carSettled || simTime > 15) && allBricksSettled && simTime > 2.0) {
+      state = 'done';
+      const status = document.getElementById('status');
+      status.textContent = 'Simulation complete';
+      status.className = 'done';
+      document.getElementById('btn-test').disabled = false;
+    }
+  }
+
+  render();
+  updateTelemetry();
+  requestAnimationFrame(loop);
+}
+
+// === RESIZE ===
+function resize() {
+  const wrap = document.getElementById('canvas-wrap');
+  canvas.width = wrap.clientWidth * window.devicePixelRatio;
+  canvas.height = wrap.clientHeight * window.devicePixelRatio;
+  if (state === 'ready' || state === 'done') {
+    scene = createScene();
+  }
+}
+window.addEventListener('resize', () => { resize(); });
+
+// === CONTROLS ===
+document.getElementById('btn-test').addEventListener('click', () => {
+  if (state === 'running') return;
+  state = 'running';
+  simTime = 0;
+  accumulator = 0;
+  scene = createScene();
+  const status = document.getElementById('status');
+  status.textContent = 'Running...';
+  status.className = 'running';
+  document.getElementById('btn-test').disabled = true;
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+  state = 'ready';
+  simTime = 0;
+  scene = createScene();
+  const status = document.getElementById('status');
+  status.textContent = 'Ready to simulate';
+  status.className = '';
+  document.getElementById('btn-test').disabled = false;
+});
+
+// === INIT ===
+resize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
