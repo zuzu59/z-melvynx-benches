@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qwen3.8</title>
+<style>
+  :root{
+    --bg:#0f141b; --panel:rgba(18,24,33,0.86); --panel-brd:rgba(255,255,255,0.09);
+    --txt:#e8eef5; --muted:#8fa1b3; --accent:#e8542f; --accent2:#2f9de8; --good:#4caf7d;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden}
+  #app{display:flex;flex-direction:column;height:100vh;width:100vw}
+  #topbar{display:flex;align-items:center;justify-content:space-between;
+    padding:10px 18px;background:linear-gradient(180deg,#141b24,#0f141b);
+    border-bottom:1px solid var(--panel-brd);z-index:5;flex:0 0 auto}
+  .brand{display:flex;align-items:baseline;gap:12px}
+  .brand h1{font-size:22px;margin:0;font-weight:800;letter-spacing:.3px;
+    background:linear-gradient(90deg,#ff7a4d,#e8542f 55%,#2f9de8);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .brand .sub{font-size:12.5px;color:var(--muted);font-weight:600;letter-spacing:.4px;text-transform:uppercase}
+  .controls{display:flex;gap:10px}
+  button{font:inherit;cursor:pointer;border:none;border-radius:9px;padding:9px 18px;font-weight:700;
+    background:#232d3a;color:var(--txt);transition:transform .05s,background .15s;letter-spacing:.3px}
+  button:hover{background:#2c3949}
+  button:active{transform:translateY(1px)}
+  button.primary{background:linear-gradient(180deg,#ff6a3d,#e8542f);color:#fff;box-shadow:0 4px 14px rgba(232,84,47,.35)}
+  button.primary:hover{background:linear-gradient(180deg,#ff7a52,#f0603a)}
+  button.small{padding:6px 12px;font-size:12px;font-weight:600;background:#1c2530}
+  #stage{position:relative;flex:1 1 auto;overflow:hidden}
+  #cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .panel{position:absolute;background:var(--panel);backdrop-filter:blur(10px);
+    border:1px solid var(--panel-brd);border-radius:14px;padding:14px 16px;z-index:4;
+    box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  #settings{top:16px;right:16px;width:264px}
+  #telemetry{left:16px;top:16px;width:236px}
+  .panel-title{font-size:11px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;
+    color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .panel-title::after{content:"";flex:1;height:1px;background:var(--panel-brd)}
+  .setting{margin-bottom:13px}
+  .setting .row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
+  .setting label{font-size:12.5px;font-weight:600;color:var(--txt)}
+  .setting .val{font-size:12.5px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums}
+  .setting .val .unit{color:var(--muted);font-weight:600;font-size:10.5px;margin-left:2px}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:5px;border-radius:3px;
+    background:#2a3543;outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;
+    border-radius:50%;background:linear-gradient(180deg,#ff7a4d,#e8542f);cursor:pointer;
+    border:2px solid #fff2;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+  input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;
+    background:linear-gradient(180deg,#ff7a4d,#e8542f);cursor:pointer;border:2px solid #fff2}
+  .settings-foot{margin-top:6px;padding-top:10px;border-top:1px solid var(--panel-brd)}
+  .tele-row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;font-size:13px}
+  .tele-row .k{color:var(--muted);font-weight:600}
+  .tele-row .v{font-weight:800;font-variant-numeric:tabular-nums;color:var(--txt)}
+  .tele-row .v.acc{color:var(--accent)}
+  .tele-row .v.good{color:var(--good)}
+  .state-pill{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:800;letter-spacing:.5px}
+  .state-idle{background:#26313f;color:#9fb2c6}
+  .state-running{background:#3a2a1e;color:#ffab8a}
+  .state-settled{background:#1e3329;color:#8fd9ae}
+  #hint{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);z-index:3;
+    font-size:13px;font-weight:600;color:#fff;background:rgba(0,0,0,.42);padding:8px 18px;border-radius:20px;
+    border:1px solid rgba(255,255,255,.12);pointer-events:none;transition:opacity .5s}
+  #hint.hide{opacity:0}
+  @media (max-width:760px){
+    #settings{width:220px;right:10px;top:10px}
+    #telemetry{width:200px;left:10px;top:10px}
+    .brand .sub{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="topbar">
+    <div class="brand"><h1>Qwen3.8</h1><span class="sub">Brick Wall Crash Lab</span></div>
+    <div class="controls">
+      <button id="btn-reset" title="Reset the scene">↺ Reset</button>
+      <button id="btn-test" class="primary" title="Launch the crash test">▶ Test</button>
+    </div>
+  </header>
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="settings" class="panel">
+      <div class="panel-title">Experiment Settings</div>
+      <div id="settings-body"></div>
+      <div class="settings-foot"><button id="btn-defaults" class="small" style="width:100%">Restore Defaults</button></div>
+    </div>
+    <div id="telemetry" class="panel">
+      <div class="panel-title">Telemetry</div>
+      <div class="tele-row"><span class="k">Car Speed</span><span class="v acc" id="t-speed">0.0 m/s</span></div>
+      <div class="tele-row"><span class="k">Elapsed Time</span><span class="v" id="t-time">0.00 s</span></div>
+      <div class="tele-row"><span class="k">Moving Bricks</span><span class="v" id="t-bricks">0 / 0</span></div>
+      <div class="tele-row"><span class="k">Impact Speed</span><span class="v" id="t-impact">—</span></div>
+      <div class="tele-row"><span class="k">View Scale</span><span class="v" id="t-scale">80 px/m</span></div>
+      <div class="tele-row"><span class="k">State</span><span class="v"><span id="t-state" class="state-pill state-idle">Ready</span></span></div>
+    </div>
+    <div id="hint">Press <b>&nbsp;Test&nbsp;</b> to launch the crash</div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   Qwen3.8 — Brick Wall Crash Lab
+   Single-file 2D rigid-body crash experiment.
+   Sections: config → math → rigid body → collision (SAT+clipping)
+   → solver → world/step → scene build → effects → renderer → UI → loop
+   ============================================================ */
+
+/* ---------------- CONFIG / MANDATORY DEFAULTS ---------------- */
+const DEFAULTS = {
+  carSpeed:   22,    // m/s
+  wallCols:   12,    // bricks wide
+  wallRows:   8,     // bricks tall
+  wallLayers: 2,     // layers thick
+  brickMass:  2.5,   // kg per brick
+};
+const SETTING_DEFS = [
+  {key:'carSpeed',   label:'Car Speed',         unit:'m/s',  min:5,   max:45,  step:1},
+  {key:'wallCols',   label:'Wall Columns',      unit:'bricks',min:4,  max:24,  step:1},
+  {key:'wallRows',   label:'Wall Rows',         unit:'bricks',min:3,  max:16,  step:1},
+  {key:'wallLayers', label:'Wall Depth Layers', unit:'layers',min:1,  max:5,   step:1},
+  {key:'brickMass',  label:'Brick Mass',        unit:'kg',   min:0.5, max:12,  step:0.5},
+];
+// Fixed physical constants (from the spec, not user-tunable)
+const BRICK_W = 0.50, BRICK_H = 0.24;      // m
+const GRAVITY = 9.81;                       // m/s^2
+const BRICK_FRICTION = 0.72, BRICK_REST = 0.18;
+const CAR_MASS = 1250, CAR_W = 4.2, CAR_H = 1.45;
+const GROUND_FRICTION = 0.85;
+const REF_SCALE = 80;                        // px per meter (reference)
+// Simulation tuning (tunable via __SIM.setParams for experimentation)
+let FIXED_DT = 1/240;
+let VEL_ITERS = 16, POS_ITERS = 2;
+const MAX_STEPS = 8;                          // substeps per frame cap
+let PRE_STEPS = 100;                          // pre-stabilization substeps
+let SLOP = 0.004, BAUMGARTE = 0.0;            // 0 = no positional correction (keeps brick stacks stable)
+const CAR_START_REAR = 1.0, CAR_GAP = 3.0;
+const WHEEL_R = 0.33;
+// Sleep (performance): freeze at-rest bodies so large piles stay fast & settle quickly
+const SLEEP_V = 0.12, SLEEP_W = 0.15, SLEEP_TIME = 0.45, WAKE_V = 0.5;
+
+/* ---------------- DETERMINISTIC PRNG ---------------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+let dustRng = mulberry32(123456789);
+const cloudRng = mulberry32(987654321);
+const clouds = [];
+for(let i=0;i<5;i++) clouds.push({x:0.06+cloudRng()*0.88, y:0.06+cloudRng()*0.34, s:26+cloudRng()*46});
+
+/* ---------------- WORLD STATE ---------------- */
+let settings = Object.assign({}, DEFAULTS);
+let bodies = [], bricks = [], car = null;
+let nextId = 0;
+let state = 'idle';          // idle | running
+let settled = false;
+let time = 0, settledTimer = 0;
+let impactSpeed = null;
+let shakeMag = 0, shakeX = 0, shakeY = 0;
+let particles = [], skids = [];
+let stepImpacts = [];
+// layout
+let cssW=0, cssH=0, dpr=1, SCALE=REF_SCALE, camX=0, groundScreenY=0;
+let worldLeft=0, worldRight=16, worldW=16;
+let wallLeftX_=0, wallRightX_=0;
+const GROUND = {id:-1, type:'ground', pos:{x:0,y:-100}, vel:{x:0,y:0}, angVel:0,
+  invMass:0, invInertia:0, friction:GROUND_FRICTION, restitution:0.12};
+
+/* ---------------- RIGID BODY ---------------- */
+function makeBody(o){
+  const w = 2*o.halfW, h = 2*o.halfH;
+  const inertia = o.mass*(w*w + h*h)/12;
+  return {
+    id: nextId++, type:o.type,
+    pos:{x:o.x, y:o.y}, vel:{x:0,y:0}, angle:0, angVel:0,
+    mass:o.mass, invMass:1/o.mass,
+    halfW:o.halfW, halfH:o.halfH,
+    inertia, invInertia:1/inertia,
+    friction:o.friction, restitution:o.restitution,
+    layer:o.layer||0, row:o.row||0, col:o.col||0,
+    isStatic:false, crumple:0, wheelAngle:0,
+    asleep:false, sleepT:0,
+  };
+}
+function corners(b){
+  const c=Math.cos(b.angle), s=Math.sin(b.angle);
+  const axx=c, axy=s, ayx=-s, ayy=c, hw=b.halfW, hh=b.halfH, px=b.pos.x, py=b.pos.y;
+  return [
+    {x:px+axx*hw+ayx*hh, y:py+axy*hw+ayy*hh},
+    {x:px-axx*hw+ayx*hh, y:py-axy*hw+ayy*hh},
+    {x:px-axx*hw-ayx*hh, y:py-axy*hw-ayy*hh},
+    {x:px+axx*hw-ayx*hh, y:py+axy*hw-ayy*hh},
+  ];
+}
+function faceNormals(b){
+  const c=Math.cos(b.angle), s=Math.sin(b.angle);
+  return [{x:c,y:s},{x:-s,y:c},{x:-c,y:-s},{x:s,y:-c}];
+}
+function faceVerts(b){
+  const co=corners(b);
+  return [[co[0],co[3]],[co[0],co[1]],[co[1],co[2]],[co[2],co[3]]];
+}
+
+/* ---------------- COLLISION (SAT + CLIPPING) ---------------- */
+function findMaxSeparation(A,B){
+  const nA=faceNormals(A), fvA=faceVerts(A), corB=corners(B);
+  let best=-Infinity, bi=0;
+  for(let i=0;i<4;i++){
+    const n=nA[i], v=fvA[i][0]; let sep=Infinity;
+    for(let j=0;j<4;j++){
+      const s=(corB[j].x-v.x)*n.x+(corB[j].y-v.y)*n.y;
+      if(s<sep) sep=s;
+    }
+    if(sep>best){best=sep;bi=i;}
+  }
+  return [best,bi];
+}
+function clipSeg(p1,p2,nx,ny,d){
+  const out=[];
+  const d1=nx*p1.x+ny*p1.y+d, d2=nx*p2.x+ny*p2.y+d;
+  if(d1<=0) out.push(p1);
+  if(d2<=0) out.push(p2);
+  if(d1*d2<0){const t=d1/(d1-d2); out.push({x:p1.x+t*(p2.x-p1.x), y:p1.y+t*(p2.y-p1.y)});}
+  return out;
+}
+function collideOBB(A,B){
+  const sa=findMaxSeparation(A,B); if(sa[0]>0) return [];
+  const sb=findMaxSeparation(B,A); if(sb[0]>0) return [];
+  let ref,inc,ri,flip;
+  if(sb[0] > sa[0]+0.0005){ref=B;inc=A;ri=sb[1];flip=true;}
+  else {ref=A;inc=B;ri=sa[1];flip=false;}
+  const refN=faceNormals(ref)[ri];
+  const incN=faceNormals(inc);
+  let ii=0,md=Infinity;
+  for(let i=0;i<4;i++){const dot=incN[i].x*refN.x+incN[i].y*refN.y; if(dot<md){md=dot;ii=i;}}
+  const iv=faceVerts(inc)[ii];
+  const rv=faceVerts(ref)[ri], rv1=rv[0], rv2=rv[1];
+  let tx=rv2.x-rv1.x, ty=rv2.y-rv1.y; const tl=Math.hypot(tx,ty)||1; tx/=tl; ty/=tl;
+  let pts=clipSeg(iv[0],iv[1], -tx,-ty, tx*rv1.x+ty*rv1.y);
+  if(pts.length===2) pts=clipSeg(pts[0],pts[1], tx,ty, -(tx*rv2.x+ty*rv2.y));
+  else if(pts.length===1){ if(tx*pts[0].x+ty*pts[0].y-(tx*rv2.x+ty*rv2.y)>0) pts=[]; }
+  else pts=[];
+  const out=[];
+  for(const p of pts){
+    const pen=(rv1.x-p.x)*refN.x+(rv1.y-p.y)*refN.y;
+    if(pen>=-0.0005){
+      let nx=refN.x, ny=refN.y; if(flip){nx=-nx;ny=-ny;}
+      out.push({point:p, normal:{x:nx,y:ny}, penetration:Math.max(0,pen), a:A, b:B, totalJ:0});
+    }
+  }
+  return out;
+}
+function collideGround(b){
+  const out=[], cor=corners(b);
+  for(const p of cor){
+    if(p.y<0) out.push({point:p, normal:{x:0,y:1}, penetration:-p.y, a:GROUND, b:b, totalJ:0});
+  }
+  return out;
+}
+
+/* ---------------- SOLVER ---------------- */
+function solveVelocity(c){
+  const A=c.a, B=c.b, nx=c.normal.x, ny=c.normal.y;
+  const rAx=c.point.x-A.pos.x, rAy=c.point.y-A.pos.y;
+  const rBx=c.point.x-B.pos.x, rBy=c.point.y-B.pos.y;
+  let rvx=(B.vel.x-B.angVel*rBy)-(A.vel.x-A.angVel*rAy);
+  let rvy=(B.vel.y+B.angVel*rBx)-(A.vel.y+A.angVel*rAx);
+  const vn=rvx*nx+rvy*ny;
+  if(vn>0) return;
+  if(A.asleep && -vn>WAKE_V){ A.asleep=false; A.sleepT=0; }
+  if(B.asleep && -vn>WAKE_V){ B.asleep=false; B.sleepT=0; }
+  const e=Math.min(A.restitution,B.restitution);
+  const rAcN=rAx*ny-rAy*nx, rBcN=rBx*ny-rBy*nx;
+  const imSum=A.invMass+B.invMass;
+  const kN=imSum + A.invInertia*rAcN*rAcN + B.invInertia*rBcN*rBcN;
+  if(kN<1e-9) return;
+  const j=-(1+e)*vn/kN;
+  const ix=j*nx, iy=j*ny;
+  A.vel.x-=ix*A.invMass; A.vel.y-=iy*A.invMass; A.angVel-=A.invInertia*(rAx*iy-rAy*ix);
+  B.vel.x+=ix*B.invMass; B.vel.y+=iy*B.invMass; B.angVel+=B.invInertia*(rBx*iy-rBy*ix);
+  c.totalJ += j;
+  // friction
+  rvx=(B.vel.x-B.angVel*rBy)-(A.vel.x-A.angVel*rAy);
+  rvy=(B.vel.y+B.angVel*rBx)-(A.vel.y+A.angVel*rAx);
+  const vn2=rvx*nx+rvy*ny;
+  let tx=rvx-nx*vn2, ty=rvy-ny*vn2;
+  const tl=Math.hypot(tx,ty); if(tl<1e-9) return;
+  tx/=tl; ty/=tl;
+  const rAcT=rAx*ty-rAy*tx, rBcT=rBx*ty-rBy*tx;
+  const kT=imSum + A.invInertia*rAcT*rAcT + B.invInertia*rBcT*rBcT;
+  if(kT<1e-9) return;
+  let jt=-(rvx*tx+rvy*ty)/kT;
+  const mu=Math.min(A.friction,B.friction);
+  if(Math.abs(jt)>mu*j) jt=Math.sign(jt)*mu*j;
+  const fx=jt*tx, fy=jt*ty;
+  A.vel.x-=fx*A.invMass; A.vel.y-=fy*A.invMass; A.angVel-=A.invInertia*(rAx*fy-rAy*fx);
+  B.vel.x+=fx*B.invMass; B.vel.y+=fy*B.invMass; B.angVel+=B.invInertia*(rBx*fy-rBy*fx);
+}
+function solvePosition(c){
+  const A=c.a, B=c.b, nx=c.normal.x, ny=c.normal.y;
+  const imSum=A.invMass+B.invMass; if(imSum===0) return;
+  const corr=Math.max(c.penetration-SLOP,0)/imSum*BAUMGARTE;
+  A.pos.x-=nx*corr*A.invMass; A.pos.y-=ny*corr*A.invMass;
+  B.pos.x+=nx*corr*B.invMass; B.pos.y+=ny*corr*B.invMass;
+}
+
+/* ---------------- BROADPHASE (UNIFORM GRID) ---------------- */
+function buildPairs(){
+  const CELL=0.6, grid=new Map(), n=bodies.length;
+  for(let i=0;i<n;i++){
+    const b=bodies[i], cor=corners(b);
+    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    for(const p of cor){if(p.x<minX)minX=p.x; if(p.x>maxX)maxX=p.x; if(p.y<minY)minY=p.y; if(p.y>maxY)maxY=p.y;}
+    b.aabb={minX,minY,maxX,maxY};
+    const x0=Math.floor(minX/CELL), x1=Math.floor(maxX/CELL), y0=Math.floor(minY/CELL), y1=Math.floor(maxY/CELL);
+    for(let cx=x0;cx<=x1;cx++)for(let cy=y0;cy<=y1;cy++){
+      const k=cx+','+cy; let a=grid.get(k); if(!a){a=[];grid.set(k,a);} a.push(i);
+    }
+  }
+  const seen=new Set(), pairs=[];
+  for(const arr of grid.values()){
+    for(let i=0;i<arr.length;i++)for(let j=i+1;j<arr.length;j++){
+      const a=arr[i], b=arr[j];
+      const key=a<b? a*100000+b : b*100000+a;
+      if(!seen.has(key)){seen.add(key); pairs.push([a,b]);}
+    }
+  }
+  pairs.sort((p,q)=> p[0]-q[0] || p[1]-q[1]);
+  return pairs;
+}
+
+/* ---------------- WORLD STEP ---------------- */
+function step(dt, active){
+  for(const b of bodies){ if(!b.isStatic && !b.asleep) b.vel.y -= GRAVITY*dt; }
+  const contacts=[];
+  const pairs=buildPairs();
+  for(const [ia,ib] of pairs){
+    const A=bodies[ia], B=bodies[ib];
+    const aA=A.aabb, aB=B.aabb;
+    if(!(aA.minX<aB.maxX && aA.maxX>aB.minX && aA.minY<aB.maxY && aA.maxY>aB.minY)) continue; // cheap AABB reject
+    const cs=collideOBB(A,B);
+    for(const c of cs) contacts.push(c);
+  }
+  for(const b of bodies){
+    if(b.isStatic) continue;
+    const cs=collideGround(b);
+    for(const c of cs) contacts.push(c);
+  }
+  contacts.sort((c1,c2)=> (c1.a.id-c2.a.id)||(c1.b.id-c2.b.id)||(c1.point.x-c2.point.x)||(c1.point.y-c2.point.y));
+  const iters = bodies.length>800?6:(bodies.length>400?10:VEL_ITERS);
+  for(let it=0; it<iters; it++) for(const c of contacts) solveVelocity(c);
+  for(const b of bodies){
+    if(b.isStatic) continue;
+    if(b.asleep){ b.vel.x=0; b.vel.y=0; b.angVel=0; continue; }
+    b.pos.x+=b.vel.x*dt; b.pos.y+=b.vel.y*dt; b.angle+=b.angVel*dt;
+    const sp=Math.hypot(b.vel.x,b.vel.y);
+    const ld = sp<0.15 ? 0.90 : (sp<0.6 ? 0.985 : 0.9999);  // hard rest tier only when ~stopped
+    b.vel.x*=ld; b.vel.y*=ld;
+    const w=Math.abs(b.angVel);
+    b.angVel *= (w<0.15 ? 0.90 : (w<0.6 ? 0.985 : 0.999));
+    if(sp<SLEEP_V && w<SLEEP_W){ b.sleepT+=dt; if(b.sleepT>SLEEP_TIME){ b.asleep=true; b.vel.x=0;b.vel.y=0;b.angVel=0; } }
+    else b.sleepT=0;
+  }
+  if(BAUMGARTE>0) for(let it=0; it<POS_ITERS; it++) for(const c of contacts) solvePosition(c);
+  time += dt;
+  if(active){
+    stepImpacts=[];
+    for(const c of contacts){
+      if(c.totalJ>0 && (c.a.type==='car'||c.b.type==='car')){
+        stepImpacts.push({point:c.point, normal:c.normal, j:c.totalJ});
+        const cb=(c.a.type==='car')?c.a:c.b;
+        cb.crumple=Math.min(1, cb.crumple + c.totalJ/6000);
+        shakeMag=Math.min(1.2, shakeMag + c.totalJ/6000);
+        if(impactSpeed===null) impactSpeed=Math.hypot(cb.vel.x, cb.vel.y);
+      }
+    }
+    car.wheelAngle += car.vel.x*dt/WHEEL_R;
+  }
+}
+
+/* ---------------- SCENE BUILD ---------------- */
+function buildCameraWindow(){
+  const bw=BRICK_W, gap=0.002;
+  const cols=settings.wallCols, layers=settings.wallLayers;
+  const wallLeft = CAR_START_REAR+CAR_W+CAR_GAP;
+  const rightmostCenterX = wallLeft + (layers-1)*(bw+gap) + (cols-1)*(bw+gap) + bw/2 + bw/2;
+  const wallRight = rightmostCenterX + bw/2;
+  wallLeftX_=wallLeft; wallRightX_=wallRight;
+  worldLeft = Math.min(CAR_START_REAR, wallLeft) - 0.6;
+  worldRight = wallRight + 10.0;
+  worldW = worldRight - worldLeft;
+}
+function computeLayout(){
+  SCALE=Math.min(REF_SCALE, cssW/worldW);
+  const visW=cssW/SCALE;
+  camX = (visW>worldW) ? worldLeft-(visW-worldW)/2 : worldLeft;
+  groundScreenY=cssH*0.82;
+}
+function rebuild(){
+  const n = 1 + settings.wallCols*settings.wallRows*settings.wallLayers;
+  const pre = n>1500?24:(n>800?48:PRE_STEPS);  // fewer pre-steps for large (already-stable grid) walls
+  rebuildWithPre(pre);
+}
+function rebuildWithPre(pre){
+  bodies=[]; bricks=[]; particles=[]; skids=[];
+  shakeMag=0; impactSpeed=null; time=0; settledTimer=0; settled=false;
+  stepImpacts=[]; nextId=0; state='idle';
+  const gap=0.002, bw=BRICK_W, bh=BRICK_H;
+  const cols=settings.wallCols, rows=settings.wallRows, layers=settings.wallLayers;
+  car=makeBody({type:'car', mass:CAR_MASS, halfW:CAR_W/2, halfH:CAR_H/2,
+    x:CAR_START_REAR+CAR_W/2, y:CAR_H/2, friction:GROUND_FRICTION, restitution:0.10});
+  bodies.push(car);
+  const wallLeft = CAR_START_REAR+CAR_W+CAR_GAP;
+  for(let l=0;l<layers;l++)for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    const stagger=(r%2)*(bw/2);
+    const x=wallLeft + l*(bw+gap) + c*(bw+gap) + stagger + bw/2;
+    const y=(r+0.5)*(bh+gap);
+    const bk=makeBody({type:'brick', mass:settings.brickMass, halfW:bw/2, halfH:bh/2,
+      x, y, friction:BRICK_FRICTION, restitution:BRICK_REST, layer:l, row:r, col:c});
+    bricks.push(bk); bodies.push(bk);
+  }
+  for(let i=0;i<pre;i++) step(FIXED_DT, false);
+  for(const b of bodies){ b.vel.x=0; b.vel.y=0; b.angVel=0; }
+  time=0;
+  buildCameraWindow();
+  computeLayout();
+}
+function doTest(){
+  rebuild();
+  dustRng=mulberry32(123456789);
+  car.vel.x=settings.carSpeed;
+  state='running'; settled=false; settledTimer=0;
+  hintEl.classList.add('hide');
+}
+function doReset(){
+  rebuild();
+  dustRng=mulberry32(123456789);
+}
+
+/* ---------------- EFFECTS ---------------- */
+function spawnDust(p,n,j){
+  const count=Math.min(8, 2+Math.floor(j/20));
+  for(let i=0;i<count;i++){
+    const sp=(dustRng()-0.5)*2;
+    const speed=1+dustRng()*3;
+    particles.push({
+      x:p.x, y:p.y,
+      vx:n.x*speed+sp*2, vy:Math.abs(n.y)*speed+0.4+dustRng()*1.4,
+      life:0.4+dustRng()*0.5, maxLife:0.9,
+      size:0.05+dustRng()*0.08, grow:0.3+dustRng()*0.3,
+    });
+  }
+}
+function updateEffects(dt){
+  for(const imp of stepImpacts) if(imp.j>15) spawnDust(imp.point, imp.normal, imp.j);
+  stepImpacts.length=0;
+  for(const p of particles){
+    p.vy-=GRAVITY*0.25*dt;
+    p.x+=p.vx*dt; p.y+=p.vy*dt;
+    p.life-=dt; p.size+=p.grow*dt;
+  }
+  particles=particles.filter(p=>p.life>0 && p.y>-1);
+  if(particles.length>500) particles.splice(0, particles.length-500);
+  shakeMag*=Math.exp(-dt*5); if(shakeMag<0.001) shakeMag=0;
+  shakeX=Math.sin(time*37)*shakeMag*10;
+  shakeY=Math.cos(time*43)*shakeMag*7;
+  if(state==='running' && (car.pos.x+car.halfW)<wallLeftX_ && Math.hypot(car.vel.x,car.vel.y)>3){
+    skids.push({l:car.pos.x-1.35, r:car.pos.x+1.35});
+    if(skids.length>400) skids.shift();
+  }
+}
+function totalKE(){
+  let ke=0;
+  for(const b of bodies){ if(b.isStatic) continue;
+    ke+=0.5*b.mass*(b.vel.x*b.vel.x+b.vel.y*b.vel.y);
+    ke+=0.5*b.inertia*b.angVel*b.angVel; }
+  return ke;
+}
+function movingBricks(){
+  let n=0; for(const b of bricks) if(Math.hypot(b.vel.x,b.vel.y)>0.05||Math.abs(b.angVel)>0.05) n++;
+  return n;
+}
+
+/* ---------------- RENDERER ---------------- */
+const canvas=document.getElementById('cv');
+const ctx=canvas.getContext('2d');
+function roundRectPath(x,y,w,h,r){
+  r=Math.max(0,Math.min(r,w/2,h/2));
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y); ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r); ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h); ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r); ctx.arcTo(x,y,x+r,y,r);
+  ctx.closePath();
+}
+function shadeColor(hex,f){
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  return `rgb(${Math.round(r*f)},${Math.round(g*f)},${Math.round(b*f)})`;
+}
+const BRICK_PAL=['#b5442f','#a83e2b','#c14a33','#9e3a28'];
+function bodyMatrix(b){
+  const c=Math.cos(b.angle), s=Math.sin(b.angle);
+  return {
+    a:SCALE*c, b:-SCALE*s, c:-SCALE*s, d:-SCALE*c,
+    e:(b.pos.x-camX)*SCALE+shakeX, f:groundScreenY-b.pos.y*SCALE+shakeY,
+  };
+}
+function drawBrick(bk){
+  const m=bodyMatrix(bk);
+  ctx.save(); ctx.transform(m.a,m.b,m.c,m.d,m.e,m.f);
+  const hw=bk.halfW, hh=bk.halfH, g=0.004;
+  const shade=1-bk.layer*0.16;
+  ctx.fillStyle=shadeColor(BRICK_PAL[(bk.col*7+bk.row*5+bk.layer*3)%BRICK_PAL.length], shade);
+  roundRectPath(-hw+g,-hh+g,2*hw-2*g,2*hh-2*g,0.02); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,0.14)'; ctx.fillRect(-hw+g, hh-0.035, 2*hw-2*g, 0.028);
+  ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.fillRect(-hw+g, -hh+g, 2*hw-2*g, 0.02);
+  ctx.restore();
+}
+function drawCar(b){
+  const m=bodyMatrix(b);
+  ctx.save(); ctx.transform(m.a,m.b,m.c,m.d,m.e,m.f);
+  const hw=b.halfW, hh=b.halfH, cr=b.crumple, frontX=hw-cr*0.55;
+  // wheels
+  const wy=-hh+WHEEL_R;
+  for(const wx of [-1.35,1.35]){
+    ctx.fillStyle='#16181c'; ctx.beginPath(); ctx.arc(wx,wy,WHEEL_R,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#9aa4b0'; ctx.beginPath(); ctx.arc(wx,wy,WHEEL_R*0.52,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#5b6672'; ctx.lineWidth=0.045;
+    for(let k=0;k<4;k++){
+      const a=b.wheelAngle+k*Math.PI/2;
+      ctx.beginPath(); ctx.moveTo(wx,wy);
+      ctx.lineTo(wx+Math.cos(a)*WHEEL_R*0.46, wy+Math.sin(a)*WHEEL_R*0.46); ctx.stroke();
+    }
+    ctx.fillStyle='#cfd6dd'; ctx.beginPath(); ctx.arc(wx,wy,0.05,0,Math.PI*2); ctx.fill();
+  }
+  // lower body (main filled body)
+  ctx.fillStyle='#d64533'; ctx.strokeStyle='#7b241c'; ctx.lineWidth=0.03;
+  roundRectPath(-hw, -0.50, frontX+hw, 0.66, 0.14); ctx.fill(); ctx.stroke();
+  // cabin (greenhouse)
+  ctx.fillStyle='#c0392b';
+  ctx.beginPath();
+  ctx.moveTo(-1.3, 0.16); ctx.lineTo(-1.0, 0.64); ctx.lineTo(0.55, 0.64); ctx.lineTo(0.95, 0.16);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  // windows
+  ctx.fillStyle='#bfe3f2';
+  ctx.beginPath(); ctx.moveTo(-1.06,0.22); ctx.lineTo(-0.86,0.58); ctx.lineTo(-0.12,0.58); ctx.lineTo(-0.12,0.22); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(0.06,0.22); ctx.lineTo(0.06,0.58); ctx.lineTo(0.44,0.58); ctx.lineTo(0.70,0.22); ctx.closePath(); ctx.fill();
+  // lights
+  ctx.fillStyle='#ffe9a8'; ctx.fillRect(frontX-0.14,-0.32,0.14,0.18);
+  ctx.fillStyle='#e74c3c'; ctx.fillRect(-hw,-0.32,0.1,0.18);
+  // crumple
+  if(cr>0.1){
+    ctx.strokeStyle='rgba(0,0,0,0.32)'; ctx.lineWidth=0.02;
+    for(let k=0;k<4;k++){const yy=-0.42+k*0.24; ctx.beginPath(); ctx.moveTo(frontX,yy); ctx.lineTo(frontX-0.22,yy+0.09); ctx.stroke();}
+  }
+  ctx.restore();
+}
+function draw(){
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  // sky
+  const sky=ctx.createLinearGradient(0,0,0,groundScreenY);
+  sky.addColorStop(0,'#7fb8e0'); sky.addColorStop(0.7,'#bfe0f2'); sky.addColorStop(1,'#e2f1fa');
+  ctx.fillStyle=sky; ctx.fillRect(0,0,cssW,cssH);
+  // clouds
+  ctx.fillStyle='rgba(255,255,255,0.85)';
+  for(const cl of clouds){
+    const cx=cl.x*cssW, cy=cl.y*groundScreenY;
+    for(let k=0;k<4;k++){
+      ctx.beginPath();
+      ctx.ellipse(cx+(k-1.5)*cl.s*0.5, cy+Math.sin(k)*cl.s*0.12, cl.s*0.55, cl.s*0.32, 0,0,Math.PI*2);
+      ctx.fill();
+    }
+  }
+  // ground: road + dirt
+  const roadH=cssH*0.12;
+  ctx.fillStyle='#5a5f66'; ctx.fillRect(0,groundScreenY,cssW,roadH);
+  ctx.fillStyle='#787e86'; ctx.fillRect(0,groundScreenY,cssW,3);
+  ctx.fillStyle='#6b4f2f'; ctx.fillRect(0,groundScreenY+roadH,cssW,cssH-groundScreenY-roadH);
+  ctx.fillStyle='rgba(0,0,0,0.15)'; ctx.fillRect(0,groundScreenY+roadH,cssW,2);
+  // distance markers (scale reference)
+  ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.font='600 12px sans-serif';
+  for(let x=Math.floor(worldLeft/5)*5; x<worldRight; x+=5){
+    const sx=(x-camX)*SCALE+shakeX;
+    if(sx<-20||sx>cssW+20) continue;
+    ctx.fillRect(sx,groundScreenY,2,12);
+    ctx.fillText(x+' m', sx+5, groundScreenY+15);
+  }
+  // skid marks
+  if(skids.length>1){
+    ctx.strokeStyle='rgba(25,25,28,0.5)'; ctx.lineWidth=4; ctx.lineCap='round';
+    for(const side of ['l','r']){
+      ctx.beginPath();
+      for(let i=0;i<skids.length;i++){
+        const sx=(skids[i][side]-camX)*SCALE+shakeX, sy=groundScreenY+4;
+        if(i===0) ctx.moveTo(sx,sy); else ctx.lineTo(sx,sy);
+      }
+      ctx.stroke();
+    }
+  }
+  // bodies: back layers first, then car
+  const order=bricks.slice().sort((a,b)=> (b.layer-a.layer)||(a.pos.x-b.pos.x));
+  for(const bk of order) drawBrick(bk);
+  drawCar(car);
+  // dust
+  for(const p of particles){
+    const sx=(p.x-camX)*SCALE+shakeX, sy=groundScreenY-p.y*SCALE+shakeY;
+    const al=Math.max(0,p.life/p.maxLife)*0.5;
+    ctx.fillStyle=`rgba(158,148,128,${al})`;
+    ctx.beginPath(); ctx.arc(sx,sy,Math.max(0.5,p.size*SCALE),0,Math.PI*2); ctx.fill();
+  }
+}
+
+/* ---------------- UI ---------------- */
+const stage=document.getElementById('stage');
+const hintEl=document.getElementById('hint');
+const settingsBody=document.getElementById('settings-body');
+const valEls={}, inputEls={};
+function buildSettingsUI(){
+  settingsBody.innerHTML='';
+  for(const d of SETTING_DEFS){
+    const wrap=document.createElement('div'); wrap.className='setting';
+    wrap.innerHTML=
+      `<div class="row"><label>${d.label}</label>`+
+      `<span class="val"><span data-v>${settings[d.key]}</span><span class="unit">${d.unit}</span></span></div>`+
+      `<input type="range" min="${d.min}" max="${d.max}" step="${d.step}" value="${settings[d.key]}">`;
+    const inp=wrap.querySelector('input');
+    const val=wrap.querySelector('[data-v]');
+    inputEls[d.key]=inp; valEls[d.key]=val;
+    inp.addEventListener('input',()=>{ val.textContent=inp.value; });
+    inp.addEventListener('change',()=>{
+      let v=parseFloat(inp.value);
+      v=Math.max(d.min,Math.min(d.max,v));
+      settings[d.key]=v; val.textContent=v;
+      if(state==='idle') rebuild();
+    });
+    settingsBody.appendChild(wrap);
+  }
+}
+function syncSettingsUI(){
+  for(const d of SETTING_DEFS){
+    inputEls[d.key].value=settings[d.key];
+    valEls[d.key].textContent=settings[d.key];
+  }
+}
+const tSpeed=document.getElementById('t-speed'), tTime=document.getElementById('t-time'),
+  tBricks=document.getElementById('t-bricks'), tImpact=document.getElementById('t-impact'),
+  tScale=document.getElementById('t-scale'), tState=document.getElementById('t-state');
+function updateTelemetry(){
+  const sp=Math.hypot(car.vel.x,car.vel.y);
+  tSpeed.textContent=sp.toFixed(1)+' m/s ('+(sp*3.6).toFixed(0)+' km/h)';
+  tTime.textContent=time.toFixed(2)+' s';
+  tBricks.textContent=movingBricks()+' / '+bricks.length;
+  tImpact.textContent=(impactSpeed!==null)?impactSpeed.toFixed(1)+' m/s':'—';
+  tScale.textContent=SCALE.toFixed(0)+' px/m';
+  const st=(state==='idle')?'Ready':(settled?'Settled':'Running');
+  const cls=(state==='idle')?'state-idle':(settled?'state-settled':'state-running');
+  if(tState.textContent!==st){ tState.textContent=st; tState.className='state-pill '+cls; }
+}
+
+/* ---------------- LAYOUT / RESIZE ---------------- */
+function resize(){
+  const r=stage.getBoundingClientRect();
+  cssW=Math.max(320,r.width); cssH=Math.max(240,r.height);
+  dpr=Math.min(2, window.devicePixelRatio||1);
+  canvas.width=Math.round(cssW*dpr); canvas.height=Math.round(cssH*dpr);
+  if(bodies.length) computeLayout();
+}
+window.addEventListener('resize', resize);
+
+/* ---------------- MAIN LOOP ---------------- */
+let last=performance.now(), accumulator=0;
+function frame(now){
+  let ft=(now-last)/1000; last=now;
+  if(ft>0.1) ft=0.1;
+  if(state==='running' && !settled){
+    accumulator+=ft;
+    let steps=0;
+    const cap = bodies.length>800?3:MAX_STEPS;
+    while(accumulator>=FIXED_DT && steps<cap){
+      step(FIXED_DT, true); accumulator-=FIXED_DT; steps++;
+    }
+    if(steps>=cap) accumulator=0;
+    const ke=totalKE();
+    if(ke<30){ settledTimer+=ft; if(settledTimer>1.0) settled=true; }
+    else settledTimer=0;
+  }
+  updateEffects(ft);
+  draw();
+  updateTelemetry();
+  requestAnimationFrame(frame);
+}
+
+/* ---------------- DEBUG / TEST HOOK ---------------- */
+function hashBricks(){
+  let h=1;
+  for(const b of bricks){
+    h=(h*31 + Math.round(b.pos.x*1000))%1000000007;
+    h=(h*31 + Math.round(b.pos.y*1000))%1000000007;
+    h=(h*31 + Math.round(b.angle*10000))%1000000007;
+  }
+  return h;
+}
+function velStats(){
+  let maxV=0,maxW=0; const bins=[0,0,0,0];
+  for(const b of bricks){
+    const v=Math.hypot(b.vel.x,b.vel.y), w=Math.abs(b.angVel);
+    if(v>maxV)maxV=v; if(w>maxW)maxW=w;
+    if(v>0.05||w>0.05)bins[0]++;
+    if(v>0.1||w>0.1)bins[1]++;
+    if(v>0.5||w>0.5)bins[2]++;
+    if(v>1.0||w>1.0)bins[3]++;
+  }
+  return {maxV:Math.round(maxV*100)/100, maxW:Math.round(maxW*100)/100, gt005:bins[0],gt01:bins[1],gt05:bins[2],gt1:bins[3], ke:Math.round(totalKE())};
+}
+function wallInfo(){
+  let minY=Infinity,maxY=-Infinity,minX=Infinity,maxX=-Infinity,above=0;
+  for(const b of bricks){
+    if(b.pos.y<minY)minY=b.pos.y; if(b.pos.y>maxY)maxY=b.pos.y;
+    if(b.pos.x<minX)minX=b.pos.x; if(b.pos.x>maxX)maxX=b.pos.x;
+    if(b.pos.y>1.0)above++;
+  }
+  return {minX:Math.round(minX*100)/100,maxX:Math.round(maxX*100)/100,minY:Math.round(minY*100)/100,maxY:Math.round(maxY*100)/100,above1m:above,total:bricks.length};
+}
+function snapshot(){
+  return {
+    state: settled ? 'settled' : state, time:Math.round(time*1000)/1000,
+    carSpeed:Math.round(Math.hypot(car.vel.x,car.vel.y)*1000)/1000,
+    carX:Math.round(car.pos.x*1000)/1000,
+    carAngle:Math.round(car.angle*1e6)/1e6,
+    movingBricks:movingBricks(), totalBricks:bricks.length,
+    impactSpeed:(impactSpeed!==null)?Math.round(impactSpeed*1000)/1000:null,
+    scale:Math.round(SCALE),
+    brickHash:hashBricks(),
+  };
+}
+window.__SIM={
+  getDefaults:()=>Object.assign({},DEFAULTS),
+  getSettings:()=>Object.assign({},settings),
+  snapshot,
+  wallInfo,
+  velStats,
+  setParams(p){ if(p.FIXED_DT!==undefined)FIXED_DT=p.FIXED_DT; if(p.VEL_ITERS!==undefined)VEL_ITERS=p.VEL_ITERS; if(p.POS_ITERS!==undefined)POS_ITERS=p.POS_ITERS; if(p.PRE_STEPS!==undefined)PRE_STEPS=p.PRE_STEPS; if(p.SLOP!==undefined)SLOP=p.SLOP; if(p.BAUMGARTE!==undefined)BAUMGARTE=p.BAUMGARTE; },
+  debugBuild(pre){ rebuildWithPre(pre); },
+  debugStep(n){ for(let i=0;i<n;i++) step(FIXED_DT,false); return { wall: wallInfo() }; },
+  resetAndRun(n){
+    doTest();
+    for(let i=0;i<n;i++) step(FIXED_DT, true);
+    return snapshot();
+  },
+  test:()=>doTest(),
+  reset:()=>doReset(),
+};
+
+document.getElementById('btn-test').addEventListener('click', doTest);
+document.getElementById('btn-reset').addEventListener('click', doReset);
+document.getElementById('btn-defaults').addEventListener('click', () => {
+  settings = Object.assign({}, DEFAULTS);
+  syncSettingsUI();
+  if (state === 'idle') rebuild();
+});
+
+/* ---------------- INIT ---------------- */
+buildSettingsUI();
+resize();
+rebuild();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
