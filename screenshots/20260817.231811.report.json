@@ -1,0 +1,110 @@
+{
+  "ts": "20260817.231811",
+  "results": [
+    {
+      "name": "title is model name",
+      "ok": true,
+      "detail": "got \"Qwen3.8-27B-Q4_K_M\""
+    },
+    {
+      "name": "visible heading is model name",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "phase READY before Test",
+      "ok": true,
+      "detail": "ready"
+    },
+    {
+      "name": "car at rest before Test",
+      "ok": true,
+      "detail": "0.000"
+    },
+    {
+      "name": "wall settled (moving bricks ~0)",
+      "ok": false,
+      "detail": "5 moving"
+    },
+    {
+      "name": "default settings",
+      "ok": true,
+      "detail": "{\"speed\":22,\"cols\":12,\"rows\":8,\"layers\":2,\"brickMass\":2.5}"
+    },
+    {
+      "name": "brick count = 12x8",
+      "ok": true,
+      "detail": "96"
+    },
+    {
+      "name": "impact happened",
+      "ok": true,
+      "detail": "t=1.20s"
+    },
+    {
+      "name": "impact speed near 22 m/s",
+      "ok": false,
+      "detail": "11.8 m/s"
+    },
+    {
+      "name": "bricks moving at impact",
+      "ok": true,
+      "detail": "96"
+    },
+    {
+      "name": "run settles",
+      "ok": true,
+      "detail": "t=25.0s"
+    },
+    {
+      "name": "car slowed after impact",
+      "ok": true,
+      "detail": "0.0 m/s"
+    },
+    {
+      "name": "wall was damaged",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "identical state after 2 runs at t=2.0s",
+      "ok": true,
+      "detail": "582 values compared"
+    },
+    {
+      "name": "45 m/s impact faster than 22 m/s baseline",
+      "ok": false,
+      "detail": "20.7 m/s"
+    },
+    {
+      "name": "45 m/s run settles",
+      "ok": true,
+      "detail": "t=13.1s"
+    },
+    {
+      "name": "no NaN in extreme run",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no bricks fell through ground",
+      "ok": true,
+      "detail": "0 below y=-0.5"
+    },
+    {
+      "name": "extreme wall has 384 bricks",
+      "ok": true,
+      "detail": "384"
+    },
+    {
+      "name": "extreme run settles or times out",
+      "ok": true,
+      "detail": "phase=settled t=25.0s"
+    },
+    {
+      "name": "fatal: page.waitForFunction: Timeout 25000ms exceeded.",
+      "ok": false
+    }
+  ],
+  "consoleErrors": []
+}

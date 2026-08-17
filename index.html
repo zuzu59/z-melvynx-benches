@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qwen3.8-27B-Q4_K_M</title>
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#121a23; --line:#273442;
+    --text:#e8eef4; --dim:#8b9aa9; --accent:#ff5a3c; --accent2:#ffb454; --ok:#4fd18b;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%; overflow:hidden; background:var(--bg); color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+  #app{display:flex; flex-direction:column; height:100%;}
+  header{display:flex; align-items:center; gap:14px; padding:10px 16px;
+    background:var(--panel); border-bottom:1px solid var(--line); flex:0 0 auto; flex-wrap:wrap;}
+  .brand{font-size:19px; font-weight:800; letter-spacing:.3px;}
+  .brand .tag{font-size:10px; font-weight:700; color:var(--accent2);
+    border:1px solid var(--accent2); border-radius:4px; padding:1px 5px; margin-left:8px; vertical-align:2px;}
+  .sub{font-size:12.5px; color:var(--dim);}
+  .spacer{flex:1;}
+  .btn{font:inherit; font-weight:700; font-size:14px; cursor:pointer; border-radius:8px;
+    padding:8px 18px; border:1px solid transparent; transition:transform .06s, box-shadow .12s;}
+  .btn:active{transform:translateY(1px);}
+  .btn.primary{background:var(--accent); color:#fff; box-shadow:0 2px 14px rgba(255,90,60,.35);}
+  .btn.primary:hover{box-shadow:0 4px 18px rgba(255,90,60,.5);}
+  .btn.ghost{background:transparent; color:var(--text); border-color:var(--line);}
+  .btn.ghost:hover{border-color:#3d5163;}
+  #stage{position:relative; flex:1 1 auto; min-height:0;}
+  canvas#view{display:block; width:100%; height:100%;}
+  #hud{position:absolute; top:12px; left:12px; display:flex; flex-direction:column; gap:7px;
+    background:rgba(10,15,20,.78); border:1px solid var(--line); border-radius:10px;
+    padding:10px 14px; min-width:236px; backdrop-filter:blur(6px); z-index:2;}
+  .hrow{display:flex; justify-content:space-between; align-items:baseline; gap:16px;}
+  .hrow .k{font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:.8px;}
+  .hrow .v{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px; font-weight:600;}
+  #phase{border-radius:4px; padding:1px 7px; font-size:11px; font-weight:800; letter-spacing:.5px;}
+  #phase.ready{background:#2a3a4a; color:#9fc2e8;}
+  #phase.launch{background:#3a3320; color:var(--accent2);}
+  #phase.crash{background:#4a2020; color:#ff9a85;}
+  #phase.settled{background:#1e3a2c; color:var(--ok);}
+  #speedbarWrap{height:5px; border-radius:3px; background:#202c38; overflow:hidden; margin-top:2px;}
+  #speedbar{height:100%; width:0%; background:linear-gradient(90deg,var(--accent2),var(--accent));}
+  #settings{position:absolute; top:12px; right:12px; width:296px; background:rgba(13,19,26,.92);
+    border:1px solid var(--line); border-radius:10px; padding:14px 16px; backdrop-filter:blur(6px);
+    display:none; flex-direction:column; gap:12px; z-index:2;}
+  #settings.open{display:flex;}
+  #settings h3{font-size:12px; text-transform:uppercase; letter-spacing:1.2px; color:var(--dim);}
+  .srow .lab{display:flex; justify-content:space-between; font-size:12px; margin-bottom:3px;}
+  .srow .lab b{font-family:ui-monospace,Menlo,monospace; color:var(--accent2); font-weight:600;}
+  .srow input[type=range]{width:100%; accent-color:var(--accent);}
+  .srow .rng{display:flex; justify-content:space-between; font-size:10px; color:#5c6c7c; margin-top:1px;}
+  .note{font-size:10.5px; color:#5c6c7c; line-height:1.45;}
+  #hint{position:absolute; bottom:10px; left:12px; font-size:11px; color:rgba(255,255,255,.45);
+    background:rgba(10,15,20,.55); padding:4px 9px; border-radius:6px;}
+  #err{position:absolute; left:0; right:0; bottom:0; background:#5c1a12; color:#ffd7cd;
+    padding:10px 14px; font-size:13px; display:none; z-index:3;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">Qwen3.8-27B-Q4_K_M<span class="tag">BENCH</span></div>
+    <div class="sub">Car&nbsp;×&nbsp;Brick&nbsp;Wall — 2D rigid-body crash lab</div>
+    <div class="spacer"></div>
+    <button id="btnReset" class="btn ghost" title="Rebuild scene from settings (R)">Reset</button>
+    <button id="btnSettings" class="btn ghost" title="Experiment settings (S)">Settings</button>
+    <button id="btnTest" class="btn primary" title="Launch the crash test (T)">▶ Test</button>
+  </header>
+  <div id="stage">
+    <canvas id="view"></canvas>
+    <div id="hud">
+      <div class="hrow"><span class="k">Phase</span><span class="v"><span id="phase" class="ready">READY</span></span></div>
+      <div class="hrow"><span class="k">Car speed</span><span class="v"><span id="speed">0.0</span> m/s (<span id="speedKmh">0</span> km/h)</span></div>
+      <div id="speedbarWrap"><div id="speedbar"></div></div>
+      <div class="hrow"><span class="k">Elapsed</span><span class="v" id="time">0.00 s</span></div>
+      <div class="hrow"><span class="k">Moving bricks</span><span class="v" id="moving">0 / 96</span></div>
+      <div class="hrow"><span class="k">Kinetic energy</span><span class="v" id="ke">0.0 kJ</span></div>
+      <div class="hrow"><span class="k">Worst sim step</span><span class="v" id="ms">— ms</span></div>
+    </div>
+    <div id="settings">
+      <h3>Experiment settings</h3>
+      <div class="srow"><div class="lab"><span>Car speed</span><b id="v-speed">22 m/s</b></div>
+        <input type="range" id="s-speed" min="5" max="45" step="1" value="22"><div class="rng"><span>5</span><span>m/s</span><span>45</span></div></div>
+      <div class="srow"><div class="lab"><span>Wall columns</span><b id="v-cols">12</b></div>
+        <input type="range" id="s-cols" min="4" max="24" step="1" value="12"><div class="rng"><span>4</span><span>bricks wide</span><span>24</span></div></div>
+      <div class="srow"><div class="lab"><span>Wall rows</span><b id="v-rows">8</b></div>
+        <input type="range" id="s-rows" min="3" max="16" step="1" value="8"><div class="rng"><span>3</span><span>bricks tall</span><span>16</span></div></div>
+      <div class="srow"><div class="lab"><span>Wall depth layers</span><b id="v-layers">2</b></div>
+        <input type="range" id="s-layers" min="1" max="5" step="1" value="2"><div class="rng"><span>1</span><span>layers thick</span><span>5</span></div></div>
+      <div class="srow"><div class="lab"><span>Brick mass</span><b id="v-mass">2.5 kg</b></div>
+        <input type="range" id="s-mass" min="0.5" max="12" step="0.5" value="2.5"><div class="rng"><span>0.5</span><span>kg / brick</span><span>12</span></div></div>
+      <div class="note">Fixed: brick 0.50×0.24 m · g 9.81 m/s² · brick μ 0.72 · restitution 0.18 · car 1250 kg (4.20×1.45 m) · ground μ 0.85 · scale 80 px/m.<br>Depth layers multiply the effective mass of each brick (a 5-layer wall is 5× heavier to push over).</div>
+    </div>
+    <div id="hint">T Test · R Reset · S Settings — deterministic: same settings, same crash</div>
+    <div id="err"></div>
+  </div>
+</div>
+<script>
+'use strict';
+/* ================================================================
+   Qwen3.8-27B-Q4_K_M — Car vs Brick Wall crash lab
+   Single-file 2D rigid-body simulation (SAT + sequential impulses)
+   ================================================================ */
+
+/* ---------------------------- constants ---------------------------- */
+const SCALE=80, G=9.81, DT=1/240, MAX_SUB=6, VMAX=60, WMAX=45;
+const REST_THRESH=1.0, SLOP=0.005, BIAS=0.2, BIAS_VMAX=4.0, POS_PCT=0.25, ITER=12;
+const TRACK_MIN=-2, TRACK_MAX=28;
+const DEFAULTS={speed:22, cols:12, rows:8, layers:2, brickMass:2.5};
+const LIMITS={speed:[5,45], cols:[4,24], rows:[3,16], layers:[1,5], brickMass:[0.5,12]};
+const BRICK_W=0.50, BRICK_H=0.24;
+const CAR_MASS=1250, CAR_W=4.2, CAR_H=1.45, CAR_R=0.725;
+const GROUND_MU=0.85, ROLLING=0.02;
+const WALL_X=17, CAR_X0=3;
+const SETTLE_CAR_T=1.2, SETTLE_BRICK_T=1.0, SETTLE_TO=25;
+
+let settings=Object.assign({}, DEFAULTS);
+
+/* ---------------------- deterministic randomness ------------------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+let dustRng=mulberry32(0xC0FFEE);
+function hash01(n){let x=(n|0)*0x9E3779B1;x^=x>>>15;x=Math.imul(x,0x85EBCA6B);x^=x>>>13;x=Math.imul(x,0xC2B2AE35);x^=x>>>16;return (x>>>0)/4294967296;}
+
+/* ------------------------------- bodies ---------------------------- */
+let bodies=[], car=null, brickCount=0;
+function makeBody(o){
+  const I=o.mass*(4*(o.hx*o.hx+o.hy*o.hy))/12;
+  return {id:bodies.length, x:o.x, y:o.y, a:o.a||0, vx:o.vx||0, vy:o.vy||0, w:o.w||0,
+    mass:o.mass, invMass:o.mass>0?1/o.mass:0, I:I, invI:I>0?1/I:0,
+    hx:o.hx, hy:o.hy, mu:o.mu, rest:o.rest, isCar:!!o.isCar,
+    row:o.row||0, col:o.col||0,
+    mnx:0,mny:0,mxx:0,mxy:0, verts:[0,0,0,0,0,0,0,0]};
+}
+function bodyVerts(b){
+  const c=Math.cos(b.a), s=Math.sin(b.a), hx=b.hx, hy=b.hy, v=b.verts;
+  v[0]=b.x-c*hx-s*hy;  v[1]=b.y-s*hx+c*hy;
+  v[2]=b.x+c*hx-s*hy;  v[3]=b.y+s*hx+c*hy;
+  v[4]=b.x+c*hx+s*hy;  v[5]=b.y+s*hx-c*hy;
+  v[6]=b.x-c*hx+s*hy;  v[7]=b.y-s*hx-c*hy;
+}
+
+/* ------------------- collision: SAT + face clipping ---------------- */
+const clipBufA=[0,0,0,0], clipBufB=[0,0,0,0];
+function clipSegment(nx,ny,off,p1x,p1y,p2x,p2y,out){
+  let cnt=0;
+  const d1=nx*p1x+ny*p1y-off, d2=nx*p2x+ny*p2y-off;
+  if(d1<=0){out[cnt*2]=p1x;out[cnt*2+1]=p1y;cnt++;}
+  if(d2<=0){out[cnt*2]=p2x;out[cnt*2+1]=p2y;cnt++;}
+  if(cnt===2) return 2;
+  if(d1*d2<0){
+    const t=d1/(d1-d2);
+    out[cnt*2]=p1x+t*(p2x-p1x); out[cnt*2+1]=p1y+t*(p2y-p1y); cnt++;
+  }
+  return cnt;
+}
+function collideOBB(A,B){
+  const ca=Math.cos(A.a),sa=Math.sin(A.a),cb=Math.cos(B.a),sb=Math.sin(B.a);
+  // axes: 0,1 = A's local x,y ; 2,3 = B's local x,y
+  const axx=[ca,-sa,cb,-sb], axy=[sa,ca,sb,cb];
+  const dx=B.x-A.x, dy=B.y-A.y;
+  let best=Infinity, bi=-1;
+  for(let i=0;i<4;i++){
+    const ux=axx[i], uy=axy[i];
+    const eA=(i<2)?(i===0?A.hx:A.hy):A.hx*Math.abs(ux*ca+uy*sa)+A.hy*Math.abs(-ux*sa+uy*ca);
+    const eB=(i>=2)?(i===2?B.hx:B.hy):B.hx*Math.abs(ux*cb+uy*sb)+B.hy*Math.abs(-ux*sb+uy*cb);
+    const r=eA+eB-Math.abs(ux*dx+uy*dy);
+    if(r<0) return null;
+    if(r<best){best=r; bi=i;}
+  }
+  const ref=bi<2?A:B, inc=bi<2?B:A, flip=bi<2?1:-1;
+  const rf=bi%2; // reference face index: 0:+x 1:+y 2:-x 3:-y
+  const nwx=axx[bi]*flip, nwy=axy[bi]*flip;
+  const hRef=(rf===0||rf===2)?ref.hx:ref.hy;   // extent along face normal
+  const htRef=(rf===0||rf===2)?ref.hy:ref.hx;  // extent along face tangent
+  const fcx=ref.x+nwx*hRef, fcy=ref.y+nwy*hRef;
+  const tx=-nwy, ty=nwx;
+  // incident face: face of `inc` with normal most anti-parallel to n
+  const icx=inc.x, icy=inc.y;
+  const inx=[Math.cos(inc.a),-Math.sin(inc.a),-Math.cos(inc.a),Math.sin(inc.a)];
+  const iny=[Math.sin(inc.a),Math.cos(inc.a),-Math.sin(inc.a),-Math.cos(inc.a)];
+  let ii=0, dmin=Infinity;
+  for(let i=0;i<4;i++){const d=inx[i]*nwx+iny[i]*nwy; if(d<dmin){dmin=d;ii=i;}}
+  const inx2=inx[ii], iny2=iny[ii];
+  const ihx=(ii===0||ii===2)?inc.hx:inc.hy;
+  const iht=(ii===0||ii===2)?inc.hy:inc.hx;
+  const itx=-iny2, ity=inx2;
+  const p1x=icx+inx2*ihx+itx*iht, p1y=icy+iny2*ihx+ity*iht;
+  const p2x=icx+inx2*ihx-itx*iht, p2y=icy+iny2*ihx-ity*iht;
+  // clip incident segment against the two side planes of the reference face
+  const ftt=tx*fcx+ty*fcy;
+  let n1=clipSegment(tx,ty,ftt+htRef, p1x,p1y,p2x,p2y, clipBufA);
+  if(n1===0) return null;
+  let q1x=clipBufA[0], q1y=clipBufA[1], q2x=clipBufA[2], q2y=clipBufA[3];
+  if(n1===1){q2x=q1x; q2y=q1y;}
+  let n2=clipSegment(-tx,-ty,htRef-ftt, q1x,q1y,q2x,q2y, clipBufB);
+  if(n2===0) return null;
+  const nf=nwx*fcx+nwy*fcy;
+  const dA=nwx*clipBufB[0]+nwy*clipBufB[1]-nf;
+  const dB=nwx*clipBufB[2]+nwy*clipBufB[3]-nf;
+  if(dA>0&&dB>0) return null;
+  const pts=[];
+  if(dA<=0) pts.push({x:clipBufB[0], y:clipBufB[1], pen:-dA});
+  if(dB<=0) pts.push({x:clipBufB[2], y:clipBufB[3], pen:-dB});
+  if(pts.length===0) return null;
+  return {nx:nwx, ny:nwy, pts:pts};
+}
+
+/* ------------------------ contacts & solver ------------------------ */
+const groundBody={x:0,y:0,a:0,vx:0,vy:0,w:0,mass:0,invMass:0,I:0,invI:0,hx:0,hy:0,mu:GROUND_MU,rest:0.05,isCar:false,verts:null,
+  mnx:0,mny:0,mxx:0,mxy:0};
+let contacts=[], H=DT;
+function initContact(c){
+  const A=c.a, B=c.b, nx=c.nx, ny=c.ny, tx=-ny, ty=nx;
+  const mn=A.invMass+B.invMass, mi=A.invI+B.invI;
+  for(const p of c.pts){
+    p.rax=p.x-A.x; p.ray=p.y-A.y;
+    p.rbx=p.x-B.x; p.rby=p.y-B.y;
+    const rnA=p.rax*ny-p.ray*nx, rnB=p.rbx*ny-p.rby*nx;
+    p.kn=mn+rnA*rnA*A.invI+rnB*rnB*B.invI;
+    const rtA=p.rax*ty-p.ray*tx, rtB=p.rbx*ty-p.rby*tx;
+    p.kt=mn+rtA*rtA*A.invI+rtB*rtB*B.invI;
+    p.jn=0; p.jt=0;
+  }
+  c.mu=Math.sqrt(A.mu*B.mu);
+}
+function solveContacts(){
+  for(const c of contacts){
+    const A=c.a, B=c.b, nx=c.nx, ny=c.ny, tx=-ny, ty=nx;
+    const e=0.5*(A.rest+B.rest);
+    for(const p of c.pts){
+      const rvx=(B.vx-B.w*p.rby)-(A.vx-A.w*p.ray);
+      const rvy=(B.vy+B.w*p.rbx)-(A.vy+A.w*p.rax);
+      const vn=rvx*nx+rvy*ny;
+      let bias=Math.min(BIAS_VMAX,(BIAS/H)*Math.max(0,p.pen-SLOP));
+      if(vn<-REST_THRESH) bias+=-(1+e)*vn;
+      const dJn=-(vn-bias)/p.kn;
+      const jn0=p.jn;
+      p.jn=Math.max(jn0+dJn,0);
+      const Px=(p.jn-jn0)*nx, Py=(p.jn-jn0)*ny;
+      A.vx-=Px*A.invMass; A.vy-=Py*A.invMass; A.w-=(p.rax*Py-p.ray*Px)*A.invI;
+      B.vx+=Px*B.invMass; B.vy+=Py*B.invMass; B.w+=(p.rbx*Py-p.rby*Px)*B.invI;
+      const rvx2=(B.vx-B.w*p.rby)-(A.vx-A.w*p.ray);
+      const rvy2=(B.vy+B.w*p.rbx)-(A.vy+A.w*p.rax);
+      const vt=rvx2*tx+rvy2*ty;
+      const maxF=c.mu*p.jn;
+      const jt0=p.jt;
+      p.jt=Math.max(-maxF,Math.min(maxF,jt0-vt/p.kt));
+      const Fx=(p.jt-jt0)*tx, Fy=(p.jt-jt0)*ty;
+      A.vx-=Fx*A.invMass; A.vy-=Fy*A.invMass; A.w-=(p.rax*Fy-p.ray*Fx)*A.invI;
+      B.vx+=Fx*B.invMass; B.vy+=Fy*B.invMass; B.w+=(p.rbx*Fy-p.rby*Fx)*B.invI;
+    }
+  }
+}
+function positionCorrection(){
+  for(const c of contacts){
+    const A=c.a, B=c.b, nx=c.nx, ny=c.ny;
+    const im=A.invMass+B.invMass;
+    if(im===0) continue;
+    for(const p of c.pts){
+      const corr=Math.min(0.03,Math.max(p.pen-SLOP,0)*POS_PCT)/im;
+      A.x-=corr*A.invMass*nx; A.y-=corr*A.invMass*ny;
+      B.x+=corr*B.invMass*nx; B.y+=corr*B.invMass*ny;
+    }
+  }
+}
+function groundContacts(){
+  for(const b of bodies){
+    if(b.invMass===0) continue;
+    bodyVerts(b);
+    const v=b.verts;
+    const pts=[];
+    for(let k=0;k<4;k++){
+      const vx=v[k*2], vy=v[k*2+1];
+      if(vy<0){
+        const rx=vx-b.x;
+        pts.push({x:vx, y:0, pen:Math.min(0.15,-vy), rax:rx, ray:-b.y, rbx:0, rby:0,
+          kn:b.invMass+b.invI*rx*rx, kt:b.invMass+b.invI*b.y*b.y, jn:0, jt:0});
+      }
+    }
+    if(pts.length) contacts.push({a:b, b:groundBody, nx:0, ny:-1, pts:pts});
+  }
+}
+
+/* ------------------------------ world ------------------------------ */
+let simT=0, phase='ready', tImpact=-1, settleCarT=0, settleBrickT=0, launchA=0;
+let movingBricks=0, maxBrickSpeed=0, keTotal=0, maxStepMs=0;
+const CELL=0.6, GRID=new Map();
+let dust=[], shake=0, squash=0, flash=0, prevWheels=null;
+
+function buildScene(){
+  bodies.length=0; contacts.length=0;
+  car=makeBody({x:CAR_X0,y:CAR_R,a:0,mass:CAR_MASS,hx:CAR_W/2,hy:CAR_H/2,mu:0.9,rest:0.12,isCar:true});
+  bodies.push(car);
+  brickCount=settings.cols*settings.rows;
+  for(let r=0;r<settings.rows;r++){
+    const odd=r%2===1;
+    for(let c=0;c<settings.cols;c++){
+      let x, hx=BRICK_W/2, m=settings.brickMass*settings.layers;
+      if(!odd) x=WALL_X+(c+0.5)*BRICK_W;
+      else if(c===0) {x=WALL_X+BRICK_W*0.25; hx=BRICK_W/4; m*=0.5;}
+      else if(c===settings.cols-1) {x=WALL_X+(settings.cols-0.25)*BRICK_W; hx=BRICK_W/4; m*=0.5;}
+      else x=WALL_X+c*BRICK_W;
+      bodies.push(makeBody({x:x, y:(r+0.5)*BRICK_H, mass:m, hx:hx, hy:BRICK_H/2,
+        mu:0.72, rest:0.18, row:r, col:c}));
+    }
+  }
+  simT=0; phase='ready'; tImpact=-1; settleCarT=0; settleBrickT=0;
+  movingBricks=0; maxBrickSpeed=0; keTotal=0; maxStepMs=0;
+  const dAvail=WALL_X-(CAR_X0+CAR_W/2);
+  launchA=Math.max(1, Math.min(60, settings.speed*settings.speed/(2*Math.max(2,dAvail-2.5))));
+  dust.length=0; shake=0; squash=0; flash=0; prevWheels=null;
+  dustRng=mulberry32(0xC0FFEE);
+  skidCtx.clearRect(0,0,SKID_W,SKID_H);
+  cam.x=10; camInit=true;
+}
+function maxSpeed(){
+  let m=0;
+  for(const b of bodies){const s=b.vx*b.vx+b.vy*b.vy; if(s>m)m=s;}
+  return Math.sqrt(m);
+}
+function integrateForces(h){
+  const damp=Math.exp(-0.08*h), dampW=Math.exp(-0.3*h);
+  for(const b of bodies){
+    if(b.invMass===0) continue;
+    b.vy-=G*h;
+    if(b.isCar){
+      if(phase==='launch'&&Math.abs(b.vx)>1e-4){
+        b.vx-=Math.sign(b.vx)*ROLLING*G*h;
+      } else if(phase==='crash'||phase==='settled'){
+        const gmu=GROUND_MU*G*h;
+        if(b.vx>0) b.vx=Math.max(0,b.vx-gmu); else if(b.vx<0) b.vx=Math.min(0,b.vx+gmu);
+        b.vx-=b.vx*ROLLING*4*h;
+      }
+    }
+    b.vx*=damp; b.vy*=damp; b.w*=dampW;
+  }
+}
+function carDrive(h){
+  if(phase!=='launch') return;
+  car.vx=Math.min(settings.speed, car.vx+launchA*h);
+}
+function broadphase(){
+  GRID.clear();
+  for(let i=0;i<bodies.length;i++){
+    const b=bodies[i];
+    bodyVerts(b);
+    let mnx=b.verts[0], mxx=mnx, mny=b.verts[1], mxy=mny;
+    for(let k=2;k<8;k+=2){
+      if(b.verts[k]<mnx)mnx=b.verts[k]; if(b.verts[k]>mxx)mxx=b.verts[k];
+      if(b.verts[k+1]<mny)mny=b.verts[k+1]; if(b.verts[k+1]>mxy)mxy=b.verts[k+1];
+    }
+    b.mnx=mnx;b.mny=mny;b.mxx=mxx;b.mxy=mxy;
+    const x0=Math.floor(mnx/CELL), x1=Math.floor(mxx/CELL), y0=Math.floor(mny/CELL), y1=Math.floor(mxy/CELL);
+    for(let gx=x0;gx<=x1;gx++)for(let gy=y0;gy<=y1;gy++){
+      const key=gx*73856093^gy*19349663;
+      let arr=GRID.get(key);
+      if(!arr){arr=[];GRID.set(key,arr);}
+      arr.push(i);
+    }
+  }
+  const seen=new Set();
+  for(let i=0;i<bodies.length;i++){
+    const a=bodies[i];
+    const x0=Math.floor(a.mnx/CELL), x1=Math.floor(a.mxx/CELL), y0=Math.floor(a.mny/CELL), y1=Math.floor(a.mxy/CELL);
+    for(let gx=x0;gx<=x1;gx++)for(let gy=y0;gy<=y1;gy++){
+      const arr=GRID.get(gx*73856093^gy*19349663);
+      if(!arr) continue;
+      for(const j of arr){
+        if(j<=i) continue;
+        const bb=bodies[j];
+        if(a.mnx>bb.mxx||bb.mnx>a.mxx||a.mny>bb.mxy||bb.mny>a.mxy) continue;
+        const mk=i*100000+j;
+        if(seen.has(mk)) continue;
+        seen.add(mk);
+        const m=collideOBB(a,bb);
+        if(m){
+          let nx=m.nx, ny=m.ny;
+          if((bb.x-a.x)*nx+(bb.y-a.y)*ny<0){nx=-nx;ny=-ny;}
+          contacts.push({a:a,b:bb,nx:nx,ny:ny,pts:m.pts});
+        }
+      }
+    }
+  }
+}
+function integrate(h){
+  for(const b of bodies){
+    if(b.invMass===0) continue;
+    if(b.vx>VMAX)b.vx=VMAX; else if(b.vx<-VMAX)b.vx=-VMAX;
+    if(b.vy>VMAX)b.vy=VMAX; else if(b.vy<-VMAX)b.vy=-VMAX;
+    if(b.w>WMAX)b.w=WMAX; else if(b.w<-WMAX)b.w=-WMAX;
+    b.x+=b.vx*h; b.y+=b.vy*h; b.a+=b.w*h;
+  }
+}
+function updateEffects(dt){
+  if(tImpact<0){
+    for(const c of contacts){
+      if(!c.a.isCar&&!c.b.isCar) continue;
+      const other=c.a.isCar?c.b:c.a;
+      if(other===groundBody) continue;
+      tImpact=simT; break;
+    }
+  }
+  if(tImpact>=0&&phase==='launch') phase='crash';
+  if(phase==='crash'||phase==='settled'){
+    for(const c of contacts){
+      if(!(c.a.isCar||c.b.isCar)) continue;
+      const other=c.a.isCar?c.b:c.a;
+      const sp=Math.hypot(other.vx,other.vy);
+      if(sp>2.2){
+        shake=Math.min(0.09, shake+0.004*sp);
+        squash=Math.min(1, squash+0.25);
+        const p=c.pts[(dustRng()*c.pts.length)|0];
+        const n=1+((dustRng()*3)|0);
+        for(let k=0;k<n&&dust.length<400;k++){
+          dust.push({x:p.x, y:Math.max(0.03,p.y),
+            vx:(dustRng()-0.5)*3, vy:0.5+dustRng()*1.8,
+            life:0, max:0.5+dustRng()*0.7, r:0.07+dustRng()*0.12});
+        }
+        if(sp>6&&dust.length<400) flash=Math.min(1,flash+0.12);
+      }
+    }
+  }
+  shake*=Math.exp(-4.2*dt);
+  squash*=Math.exp(-7*dt);
+  flash*=Math.exp(-6*dt);
+  for(let i=dust.length-1;i>=0;i--){
+    const p=dust[i]; p.life+=dt;
+    if(p.life>=p.max){dust[i]=dust[dust.length-1];dust.pop();continue;}
+    p.vy-=2.2*dt; p.x+=p.vx*dt; p.y+=p.vy*dt;
+    if(p.y<0.02){p.y=0.02;p.vy=0;}
+  }
+}
+function computeStats(){
+  movingBricks=0; maxBrickSpeed=0; keTotal=0;
+  for(let i=1;i<bodies.length;i++){
+    const b=bodies[i];
+    const sp=Math.hypot(b.vx,b.vy);
+    if(sp>maxBrickSpeed) maxBrickSpeed=sp;
+    if(sp>0.05||Math.abs(b.w)>0.05) movingBricks++;
+    keTotal+=0.5*b.mass*sp*sp+0.5*b.I*b.w*b.w;
+  }
+  keTotal+=0.5*car.mass*(car.vx*car.vx+car.vy*car.vy)+0.5*car.I*car.w*car.w;
+}
+function checkSettle(dt){
+  if(phase!=='crash') return;
+  const carSp=Math.hypot(car.vx,car.vy);
+  settleCarT=carSp<0.06?settleCarT+dt:0;
+  settleBrickT=maxBrickSpeed<0.12?settleBrickT+dt:0;
+  if((settleCarT>SETTLE_CAR_T&&settleBrickT>SETTLE_BRICK_T)||simT>SETTLE_TO) phase='settled';
+}
+function step(dt){
+  const t0=performance.now();
+  const n=Math.max(1,Math.min(MAX_SUB,Math.ceil(maxSpeed()*dt/0.08)));
+  const h=dt/n;
+  H=h;
+  for(let s=0;s<n;s++){
+    carDrive(h);
+    integrateForces(h);
+    contacts.length=0;
+    broadphase();
+    groundContacts();
+    for(const c of contacts) initContact(c);
+    for(let it=0;it<ITER;it++) solveContacts();
+    integrate(h);
+    positionCorrection();
+    simT+=h;
+  }
+  updateEffects(dt);
+  computeStats();
+  checkSettle(dt);
+  const ms=performance.now()-t0;
+  if(ms>maxStepMs) maxStepMs=ms;
+}
+
+/* ----------------------------- camera ------------------------------ */
+const cam={x:10,shakeX:0,shakeY:0};
+let camInit=true;
+let stageW=800, stageH=600;
+function updateCamera(dt){
+  const half=stageW/SCALE/2;
+  const target=(car.x+WALL_X)/2;
+  const lo=TRACK_MIN+half, hi=TRACK_MAX-half;
+  if(lo>hi) cam.x=(TRACK_MIN+TRACK_MAX)/2;
+  else{
+    const t=Math.max(lo,Math.min(hi,target));
+    if(camInit){cam.x=t;camInit=false;}
+    else cam.x+=(t-cam.x)*Math.min(1,3.2*dt);
+  }
+  cam.shakeX=Math.sin(simT*61)*shake*0.55;
+  cam.shakeY=Math.cos(simT*47)*shake*0.4;
+}
+
+/* ---------------------------- rendering ---------------------------- */
+const canvas=document.getElementById('view');
+const ctx=canvas.getContext('2d');
+const stage=document.getElementById('stage');
+let dpr=1;
+const SKID_W=(TRACK_MAX-TRACK_MIN)*SCALE, SKID_H=90;
+const skidCv=document.createElement('canvas');
+const skidCtx=skidCv.getContext('2d');
+skidCv.width=SKID_W; skidCv.height=SKID_H;
+skidCtx.strokeStyle='rgba(22,23,27,0.8)';
+skidCtx.lineWidth=3; skidCtx.lineCap='round';
+
+function resize(){
+  stageW=stage.clientWidth||800; stageH=stage.clientHeight||600;
+  dpr=Math.min(2,window.devicePixelRatio||1);
+  canvas.width=Math.max(300,Math.round(stageW*dpr));
+  canvas.height=Math.max(200,Math.round(stageH*dpr));
+}
+window.addEventListener('resize',resize);
+
+function w2sX(x){return (x-cam.x)*SCALE+stageW/2+cam.shakeX*SCALE;}
+function w2sY(y){return stageH*0.78-(y-cam.shakeY)*SCALE;}
+function groundSY(){return stageH*0.78;}
+
+function render(){
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const gy=groundSY();
+  const sky=ctx.createLinearGradient(0,0,0,gy);
+  sky.addColorStop(0,'#7fb2e0'); sky.addColorStop(0.65,'#b8d4ea'); sky.addColorStop(1,'#e8e3d0');
+  ctx.fillStyle=sky; ctx.fillRect(0,0,stageW,gy);
+  // sun
+  const sx=w2sX(24), sy=stageH*0.14;
+  const sg=ctx.createRadialGradient(sx,sy,4,sx,sy,60);
+  sg.addColorStop(0,'rgba(255,250,220,1)'); sg.addColorStop(0.35,'rgba(255,244,190,0.85)'); sg.addColorStop(1,'rgba(255,244,190,0)');
+  ctx.fillStyle=sg; ctx.beginPath(); ctx.arc(sx,sy,60,0,7); ctx.fill();
+  // clouds (parallax 0.5)
+  for(let i=0;i<6;i++){
+    const cx0=(i*17.3+4)%26;
+    const px=(cx0-cam.x*0.5)*SCALE+stageW/2;
+    if(px<-150||px>stageW+150) continue;
+    const py=stageH*(0.05+hash01(i*7+3)*0.16);
+    const s=0.7+hash01(i*13+1)*0.7;
+    ctx.fillStyle='rgba(255,255,255,'+(0.55+hash01(i)*0.3)+')';
+    for(const [ox,oy,rx,ry] of [[0,0,46,13],[30,4,34,11],[-32,5,30,10]]){
+      ctx.beginPath(); ctx.ellipse(px+ox*s,py+oy*s,rx*s,ry*s,0,0,7); ctx.fill();
+    }
+  }
+  // fence
+  ctx.strokeStyle='rgba(90,100,110,0.5)'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(0,gy-46); ctx.lineTo(stageW,gy-46); ctx.moveTo(0,gy-24); ctx.lineTo(stageW,gy-24); ctx.stroke();
+  ctx.strokeStyle='rgba(90,100,110,0.4)'; ctx.lineWidth=1.5;
+  let x0=Math.floor((cam.x-stageW/SCALE/2)/1.25)*1.25;
+  for(let wx=x0;wx<cam.x+stageW/SCALE/2+1;wx+=1.25){
+    const px=w2sX(wx);
+    if(px<-10||px>stageW+10) continue;
+    ctx.beginPath(); ctx.moveTo(px,gy-52); ctx.lineTo(px,gy-18); ctx.stroke();
+  }
+  // ground
+  ctx.fillStyle='#3a3e45'; ctx.fillRect(0,gy,stageW,stageH-gy);
+  ctx.fillStyle='#4a4f57'; ctx.fillRect(0,gy,stageW,3);
+  ctx.fillStyle='rgba(255,255,255,0.10)';
+  const dashX0=Math.floor((cam.x-stageW/SCALE/2)/2)*2;
+  for(let wx=dashX0;wx<cam.x+stageW/SCALE/2;wx+=2){
+    ctx.fillRect(w2sX(wx),gy+14,1.1*SCALE,3);
+  }
+  // distance markers
+  ctx.fillStyle='rgba(255,255,255,0.5)'; ctx.font='11px ui-monospace,monospace'; ctx.textAlign='center';
+  for(let wx=0;wx<=TRACK_MAX;wx+=5){
+    const px=w2sX(wx);
+    if(px<-20||px>stageW+20) continue;
+    ctx.fillRect(px,gy+3,1.5,7);
+    ctx.fillText(wx+' m',px,gy+30);
+  }
+  // start line
+  {const px=w2sX(CAR_X0-CAR_W/2-1.2);
+   if(px>-40&&px<stageW+40){
+     for(let r=0;r<2;r++)for(let cIdx=0;cIdx<4;cIdx++){
+       ctx.fillStyle=(r+cIdx)%2?'#111':'#eee';
+       ctx.fillRect(px,gy-2-(3-r)*4,5,4);
+     }
+     ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.font='bold 10px system-ui';
+     ctx.fillText('START',px+10,gy-12);
+   }}
+  // hazard post + sign near wall
+  {const px=w2sX(WALL_X-1.6);
+   if(px>-60&&px<stageW+60){
+     ctx.fillStyle='#f2b21b'; ctx.fillRect(px,gy-34,6,34);
+     ctx.fillStyle='#151515'; ctx.fillRect(px,gy-34,6,6); ctx.fillRect(px,gy-22,6,6);
+     const sxx=px+26, syy=gy-30;
+     ctx.fillStyle='#fff'; ctx.strokeStyle='#151515'; ctx.lineWidth=1.5;
+     ctx.beginPath(); ctx.moveTo(sxx,syy-11); ctx.lineTo(sxx+11,syy+9); ctx.lineTo(sxx-11,syy+9); ctx.closePath();
+     ctx.fill(); ctx.stroke();
+     ctx.fillStyle='#151515'; ctx.font='bold 12px system-ui'; ctx.fillText('!',sxx,syy+6);
+   }}
+  // skid marks
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0,gy,stageW,60); ctx.clip();
+  ctx.drawImage(skidCv, w2sX(TRACK_MIN), gy-2, SKID_W, SKID_H);
+  ctx.restore();
+  // bricks (depth layers back-to-front)
+  for(const b of bodies){
+    if(b.isCar) continue;
+    for(let L=settings.layers-1;L>=0;L--) drawBrick(b,L);
+  }
+  drawCar();
+  // dust
+  for(const p of dust){
+    const k=p.life/p.max;
+    ctx.fillStyle='rgba(168,152,130,'+(0.42*(1-k)).toFixed(3)+')';
+    ctx.beginPath(); ctx.arc(w2sX(p.x),w2sY(p.y),p.r*SCALE*(0.6+k*1.6),0,7); ctx.fill();
+  }
+  if(flash>0.02){
+    ctx.fillStyle='rgba(255,240,210,'+(0.16*flash).toFixed(3)+')';
+    ctx.fillRect(0,0,stageW,stageH);
+  }
+}
+function drawBrick(b,L){
+  const off=L*2.6;
+  const cx=w2sX(b.x)+off, cy=w2sY(b.y)-off;
+  const w=b.hx*2*SCALE-2, h=BRICK_H*SCALE-2;
+  ctx.save();
+  ctx.translate(cx,cy); ctx.rotate(-b.a);
+  const hsh=hash01(b.row*100+b.col);
+  if(L>0){
+    ctx.fillStyle='hsl('+(10+hsh*8|0)+','+(52-hsh*6|0)+'%,'+(26-L*3)+'%)';
+    ctx.fillRect(-w/2,-h/2,w,h);
+  } else {
+    ctx.fillStyle='hsl('+(8+hsh*10|0)+','+(58-hsh*8|0)+'%,'+(40+hsh*7|0)+'%)';
+    ctx.fillRect(-w/2,-h/2,w,h);
+    ctx.fillStyle='rgba(255,255,255,0.14)'; ctx.fillRect(-w/2,-h/2,w,2);
+    ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.fillRect(-w/2,h/2-2,w,2);
+    ctx.strokeStyle='rgba(0,0,0,0.22)'; ctx.lineWidth=1; ctx.strokeRect(-w/2,-h/2,w,h);
+    if(hsh>0.5){ctx.fillStyle='rgba(0,0,0,0.08)'; ctx.fillRect(-w/4,-h/4,3,3);}
+    if(hsh<0.35){ctx.fillStyle='rgba(0,0,0,0.08)'; ctx.fillRect(w/6,h/8,2,2);}
+  }
+  ctx.restore();
+}
+function drawCar(){
+  const cx=w2sX(car.x), cy=w2sY(car.y);
+  const w=CAR_W*SCALE, h=CAR_H*SCALE;
+  const squashY=1-0.07*squash, squashX=1+0.05*squash;
+  const c=Math.cos(car.a), s=Math.sin(car.a);
+  ctx.save();
+  ctx.translate(cx,cy); ctx.rotate(-car.a); ctx.scale(squashX,squashY);
+  ctx.fillStyle='rgba(0,0,0,0.25)';
+  ctx.beginPath(); ctx.ellipse(0,h/2+3,w*0.46,5,0,0,7); ctx.fill();
+  const bodyTop=-h*0.5, bodyBot=h*0.42;
+  const g=ctx.createLinearGradient(0,bodyTop,0,bodyBot);
+  g.addColorStop(0,'#ff6a4a'); g.addColorStop(0.5,'#d92f16'); g.addColorStop(1,'#9c1a0a');
+  ctx.fillStyle=g;
+  ctx.beginPath();
+  ctx.moveTo(-w/2+6,bodyBot);
+  ctx.lineTo(-w/2+2,bodyBot-14);
+  ctx.quadraticCurveTo(-w/2+2,bodyTop+10,-w/2+20,bodyTop+8);
+  ctx.lineTo(w*0.18,bodyTop+6);
+  ctx.quadraticCurveTo(w/2-14,bodyTop+8,w/2-6,bodyBot-12);
+  ctx.lineTo(w/2,bodyBot);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#b3230f';
+  ctx.beginPath();
+  ctx.moveTo(-w*0.30,bodyTop+9);
+  ctx.quadraticCurveTo(-w*0.22,bodyTop-16,w*0.02,bodyTop-16);
+  ctx.quadraticCurveTo(w*0.20,bodyTop-16,w*0.26,bodyTop+9);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle='rgba(180,215,240,0.92)';
+  ctx.beginPath();
+  ctx.moveTo(-w*0.255,bodyTop+8);
+  ctx.quadraticCurveTo(-w*0.19,bodyTop-11,w*0.02,bodyTop-11);
+  ctx.quadraticCurveTo(w*0.16,bodyTop-11,w*0.205,bodyTop+8);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle='rgba(120,160,190,0.6)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(-w*0.02,bodyTop-10); ctx.lineTo(-w*0.02,bodyTop+7); ctx.stroke();
+  ctx.fillStyle='#2b2b2e'; ctx.fillRect(w/2-8,bodyBot-12,8,8);
+  ctx.fillStyle='#ffd76a'; ctx.fillRect(w/2-4,bodyBot-14,4,5);
+  ctx.fillStyle='#ff3b2a'; ctx.fillRect(-w/2,bodyBot-13,4,5);
+  ctx.strokeStyle='rgba(0,0,0,0.25)'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(-w*0.42,bodyBot-6); ctx.lineTo(w*0.42,bodyBot-6); ctx.stroke();
+  ctx.restore();
+  // wheels
+  const spin=car.x/0.36;
+  for(const side of [-1,1]){
+    const wx0=side*w*0.32, wy0=h*0.5-0.36*SCALE;
+    const px=cx+wx0*c-wy0*s, py=cy+wx0*s+wy0*c;
+    const r=0.36*SCALE;
+    ctx.fillStyle='#141518'; ctx.beginPath(); ctx.arc(px,py,r,0,7); ctx.fill();
+    ctx.fillStyle='#3c4148'; ctx.beginPath(); ctx.arc(px,py,r*0.62,0,7); ctx.fill();
+    ctx.strokeStyle='#9aa4ad'; ctx.lineWidth=2;
+    for(let k=0;k<4;k++){
+      const an=spin+k*Math.PI/2;
+      ctx.beginPath(); ctx.moveTo(px,py);
+      ctx.lineTo(px+Math.cos(an)*r*0.58,py+Math.sin(an)*r*0.58); ctx.stroke();
+    }
+    ctx.fillStyle='#c8ced4'; ctx.beginPath(); ctx.arc(px,py,3,0,7); ctx.fill();
+  }
+  // skid mark capture (world-anchored)
+  const braking=(phase==='crash'&&Math.abs(car.vx)>0.8)||squash>0.25;
+  const wheels=[-1,1].map(side=>{
+    const wx0=side*CAR_W*0.32, wy0=CAR_H*0.5;
+    return {x:car.x+wx0*c-wy0*s, y:car.y+wx0*s+wy0*c};
+  });
+  if(braking&&Math.abs(car.vx)>1){
+    if(prevWheels){
+      for(let i=0;i<2;i++){
+        const p1=prevWheels[i], p2=wheels[i];
+        skidCtx.beginPath();
+        skidCtx.moveTo((p1.x-TRACK_MIN)*SCALE,3);
+        skidCtx.lineTo((p2.x-TRACK_MIN)*SCALE,3);
+        skidCtx.stroke();
+      }
+    }
+    prevWheels=wheels;
+  } else prevWheels=null;
+}
+
+/* ------------------------------ HUD/UI ----------------------------- */
+const el={
+  phase:document.getElementById('phase'), speed:document.getElementById('speed'),
+  speedKmh:document.getElementById('speedKmh'), time:document.getElementById('time'),
+  moving:document.getElementById('moving'), ke:document.getElementById('ke'),
+  ms:document.getElementById('ms'), bar:document.getElementById('speedbar'),
+  err:document.getElementById('err'), settings:document.getElementById('settings')
+};
+function updateHud(){
+  const sp=Math.hypot(car.vx,car.vy);
+  el.phase.textContent=phase.toUpperCase();
+  el.phase.className=phase;
+  el.speed.textContent=sp.toFixed(1);
+  el.speedKmh.textContent=Math.round(sp*3.6);
+  el.time.textContent=simT.toFixed(2)+' s';
+  el.moving.textContent=movingBricks+' / '+brickCount;
+  el.ke.textContent=(keTotal/1000).toFixed(1)+' kJ';
+  el.bar.style.width=Math.min(100,sp/45*100)+'%';
+  el.ms.textContent=maxStepMs.toFixed(2)+' ms';
+  maxStepMs=0;
+}
+function bindSlider(id,key,fmt){
+  const input=document.getElementById('s-'+id), out=document.getElementById('v-'+id);
+  input.addEventListener('input',()=>{
+    const [lo,hi]=LIMITS[key];
+    let v=parseFloat(input.value);
+    v=Math.max(lo,Math.min(hi,v));
+    settings[key]=v;
+    out.textContent=fmt(v);
+    buildScene();
+  });
+}
+bindSlider('speed','speed',v=>v+' m/s');
+bindSlider('cols','cols',v=>String(v));
+bindSlider('rows','rows',v=>String(v));
+bindSlider('layers','layers',v=>String(v));
+bindSlider('mass','brickMass',v=>v+' kg');
+function runTest(){buildScene(); phase='launch';}
+document.getElementById('btnTest').addEventListener('click',runTest);
+document.getElementById('btnReset').addEventListener('click',buildScene);
+document.getElementById('btnSettings').addEventListener('click',()=>el.settings.classList.toggle('open'));
+window.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT') return;
+  if(e.key==='t'||e.key==='T') runTest();
+  else if(e.key==='r'||e.key==='R') buildScene();
+  else if(e.key==='s'||e.key==='S') el.settings.classList.toggle('open');
+});
+
+/* --------------------------- bench API ----------------------------- */
+window.__BENCH={
+  version:'1.0',
+  test(){runTest();},
+  reset(){buildScene();},
+  setSettings(o){
+    for(const k of ['speed','cols','rows','layers','brickMass']){
+      if(o[k]!==undefined){
+        const [lo,hi]=LIMITS[k];
+        settings[k]=Math.max(lo,Math.min(hi,o[k]));
+      }
+    }
+    buildScene();
+  },
+  settings(){return Object.assign({},settings);},
+  stepUntil(t){
+    const k=Math.max(0,Math.round((t-simT)/DT));
+    for(let i=0;i<k;i++) step(DT);
+    return this.getState();
+  },
+  getState(){
+    const carSp=Math.hypot(car.vx,car.vy);
+    return {
+      simTime:simT, phase:phase, carSpeed:carSp,
+      movingBricks:movingBricks, totalBricks:brickCount,
+      kineticEnergy:keTotal, impactTime:tImpact,
+      car:{x:car.x,y:car.y,a:car.a,vx:car.vx,vy:car.vy,w:car.w},
+      bricks:bodies.slice(1).map(b=>({x:b.x,y:b.y,a:b.a,vx:b.vx,vy:b.vy,w:b.w}))
+    };
+  },
+  snapshot(t){
+    const s=this.stepUntil(t);
+    const arr=[s.car.x,s.car.y,s.car.a,s.car.vx,s.car.vy,s.car.w];
+    for(const b of s.bricks) arr.push(b.x,b.y,b.a,b.vx,b.vy,b.w);
+    return arr;
+  }
+};
+
+window.__DBG={
+  get bodies(){return bodies;},
+  get contacts(){return contacts;},
+  collideOBB:collideOBB,
+  makeBody:makeBody,
+  DT:DT
+};
+
+/* ----------------------------- main loop --------------------------- */
+let lastT=performance.now(), acc=0;
+function frame(t){
+  requestAnimationFrame(frame);
+  let dt=(t-lastT)/1000; lastT=t;
+  if(dt>0.05) dt=0.05;
+  acc+=dt;
+  let steps=0;
+  while(acc>=DT&&steps<10){step(DT);acc-=DT;steps++;}
+  if(steps>=10) acc=0;
+  updateCamera(dt);
+  render();
+  updateHud();
+}
+window.addEventListener('error',e=>{
+  el.err.textContent='Runtime error: '+(e.message||'unknown');
+  el.err.style.display='block';
+});
+resize();
+buildScene();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
