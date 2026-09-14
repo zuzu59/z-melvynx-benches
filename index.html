@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#111820" />
+  <title>GPT 5.6 Luna — Car Brick Wall Crash</title>
+  <style>
+    :root {
+      --bg: #0d1217;
+      --panel: #151c23;
+      --panel-2: #1b242d;
+      --line: #2a3742;
+      --text: #e8eef2;
+      --muted: #8f9da8;
+      --subtle: #5f6d77;
+      --orange: #ff8d4d;
+      --orange-2: #ffc15f;
+      --cyan: #6ee7dc;
+      --red: #ff706c;
+      --shadow: 0 20px 55px rgba(0,0,0,.28);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      overflow: hidden; background: var(--bg); color: var(--text);
+      font: 13px/1.4 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: .005em;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    .app { height: 100%; display: flex; flex-direction: column; }
+    .topbar { height: 62px; flex: 0 0 62px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; border-bottom: 1px solid var(--line); background: #111820; }
+    .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+    .brand-mark { width: 30px; height: 30px; border: 1px solid #556575; border-radius: 8px; display: grid; place-items: center; color: var(--orange); background: #1b242d; }
+    .brand-mark svg { width: 17px; height: 17px; }
+    .brand-title { font-size: 14px; font-weight: 720; letter-spacing: -.01em; white-space: nowrap; }
+    .brand-title span { color: var(--muted); font-weight: 500; }
+    .top-status { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 12px; }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 0 4px rgba(110,231,220,.1); }
+    .workspace { min-height: 0; flex: 1; display: grid; grid-template-columns: 296px minmax(0, 1fr); }
+    aside { min-height: 0; overflow: auto; border-right: 1px solid var(--line); background: var(--panel); padding: 22px 20px 20px; }
+    .eyebrow { color: var(--subtle); text-transform: uppercase; font-size: 10px; font-weight: 760; letter-spacing: .13em; }
+    h1 { font-size: 17px; line-height: 1.15; letter-spacing: -.02em; margin: 6px 0 6px; }
+    .intro { margin: 0 0 22px; color: var(--muted); font-size: 12px; max-width: 240px; }
+    .section { border-top: 1px solid var(--line); padding-top: 17px; margin-top: 17px; }
+    .section-title { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; font-size: 12px; font-weight: 700; }
+    .section-title small { font-weight: 500; color: var(--subtle); }
+    .control { margin: 0 0 15px; }
+    .control-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 7px; }
+    label { color: #cbd4da; font-size: 12px; }
+    .value { color: var(--orange-2); font-variant-numeric: tabular-nums; font-weight: 700; min-width: 47px; text-align: right; }
+    .range-wrap { display: flex; align-items: center; gap: 8px; }
+    input[type=range] { appearance: none; width: 100%; height: 4px; border-radius: 4px; background: #34434e; outline: none; }
+    input[type=range]::-webkit-slider-thumb { appearance: none; width: 15px; height: 15px; border: 2px solid var(--panel); border-radius: 50%; background: var(--orange); box-shadow: 0 0 0 1px var(--orange); }
+    input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border: 2px solid var(--panel); border-radius: 50%; background: var(--orange); }
+    .number { width: 57px; border: 1px solid var(--line); border-radius: 6px; padding: 5px 6px; background: #10171d; color: var(--text); text-align: right; outline: none; }
+    .number:focus, input[type=range]:focus-visible, button:focus-visible { box-shadow: 0 0 0 3px rgba(110,231,220,.22); outline: 1px solid var(--cyan); }
+    .unit { color: var(--subtle); font-size: 10px; width: 25px; }
+    .actions { display: flex; gap: 9px; margin-top: 23px; }
+    .btn { border: 1px solid var(--line); border-radius: 7px; min-height: 38px; padding: 0 14px; color: var(--text); background: #202a33; font-weight: 720; transition: background 160ms ease, border-color 160ms ease, transform 160ms ease; }
+    .btn:hover { background: #2a3742; border-color: #4d5d68; }
+    .btn:active { transform: translateY(1px); }
+    .btn.primary { flex: 1; border-color: #d76d37; background: var(--orange); color: #1e130d; box-shadow: 0 7px 20px rgba(255,141,77,.16); }
+    .btn.primary:hover { background: #ff9d64; border-color: #ffae7b; }
+    .btn.reset { width: 76px; }
+    .hint { color: var(--subtle); font-size: 11px; margin-top: 14px; text-align: center; }
+    .lab-note { border: 1px solid var(--line); border-radius: 8px; padding: 11px 12px; margin-top: 20px; color: var(--muted); font-size: 11px; background: rgba(255,255,255,.018); }
+    .lab-note strong { color: var(--text); display: block; margin-bottom: 3px; font-size: 11px; }
+    main { min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 20px 22px 18px; background: #10161c; }
+    .main-head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 14px; gap: 20px; }
+    .main-head h2 { margin: 5px 0 0; font-size: 20px; letter-spacing: -.03em; }
+    .run-state { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .run-state .state-dot { width: 7px; height: 7px; background: var(--subtle); border-radius: 50%; }
+    .run-state.running { color: var(--orange-2); }
+    .run-state.running .state-dot { background: var(--orange); box-shadow: 0 0 9px var(--orange); }
+    .stage { position: relative; min-height: 300px; flex: 1; overflow: hidden; border: 1px solid #2c3943; border-radius: 10px; background: #182129; box-shadow: var(--shadow); }
+    canvas { display: block; width: 100%; height: 100%; }
+    .stage-badge { position: absolute; top: 14px; left: 14px; pointer-events: none; border: 1px solid rgba(142,161,173,.25); border-radius: 5px; padding: 5px 8px; color: #99a8b2; background: rgba(13,18,23,.42); text-transform: uppercase; font-size: 9px; font-weight: 780; letter-spacing: .12em; }
+    .telemetry { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px; }
+    .telemetry-item { border: 1px solid var(--line); border-radius: 7px; padding: 11px 13px 10px; background: var(--panel); }
+    .telemetry-label { color: var(--subtle); text-transform: uppercase; font-size: 9px; font-weight: 760; letter-spacing: .11em; }
+    .telemetry-value { margin-top: 4px; color: #eaf1f2; font-size: 18px; line-height: 1; font-weight: 650; font-variant-numeric: tabular-nums; }
+    .telemetry-value em { color: var(--muted); font-style: normal; font-size: 10px; font-weight: 500; }
+    .telemetry-item.accent .telemetry-value { color: var(--orange-2); }
+    @media (max-width: 760px) {
+      body { overflow: auto; }
+      .topbar { padding: 0 15px; }
+      .top-status { display: none; }
+      .workspace { display: block; }
+      aside { border-right: 0; border-bottom: 1px solid var(--line); padding: 17px 15px 16px; }
+      .intro { margin-bottom: 13px; }
+      .section { margin-top: 13px; padding-top: 13px; }
+      .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+      .actions { margin-top: 15px; }
+      .lab-note, .hint { display: none; }
+      main { min-height: 520px; padding: 16px 15px 20px; }
+      .stage { height: 370px; flex: none; }
+      .telemetry { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand"><div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 15.5h16M6 15.5l1.2-4.1a2 2 0 0 1 1.9-1.4h5.8a2 2 0 0 1 1.9 1.4l1.2 4.1M8 15.5v2m8-2v2M7.5 12h9"/><circle cx="7.5" cy="16.5" r="1.5"/><circle cx="16.5" cy="16.5" r="1.5"/></svg></div><div class="brand-title">GPT 5.6 Luna <span>/ physics bench</span></div></div>
+      <div class="top-status"><span class="live-dot"></span><span>Deterministic simulation · v1.0</span></div>
+    </header>
+    <div class="workspace">
+      <aside aria-label="Experiment settings">
+        <div class="eyebrow">Impact laboratory</div>
+        <h1>Car / brick wall crash</h1>
+        <p class="intro">Tune the variables, then observe how momentum travels through the structure.</p>
+        <div class="section">
+          <div class="section-title">Experiment settings <small>SI units</small></div>
+          <div class="controls-grid">
+            <div class="control"><div class="control-row"><label for="speed">Car speed</label><span class="value" id="speed-value">22</span></div><div class="range-wrap"><input id="speed" type="range" min="5" max="45" step="1" value="22"><span class="unit">m/s</span></div></div>
+            <div class="control"><div class="control-row"><label for="columns">Wall columns</label><span class="value" id="columns-value">12</span></div><div class="range-wrap"><input id="columns" type="range" min="4" max="24" step="1" value="12"><span class="unit">bricks</span></div></div>
+            <div class="control"><div class="control-row"><label for="rows">Wall rows</label><span class="value" id="rows-value">8</span></div><div class="range-wrap"><input id="rows" type="range" min="3" max="16" step="1" value="8"><span class="unit">high</span></div></div>
+            <div class="control"><div class="control-row"><label for="layers">Depth layers</label><span class="value" id="layers-value">2</span></div><div class="range-wrap"><input id="layers" type="range" min="1" max="5" step="1" value="2"><span class="unit">deep</span></div></div>
+            <div class="control"><div class="control-row"><label for="mass">Brick mass</label><span class="value" id="mass-value">2.5</span></div><div class="range-wrap"><input id="mass" type="range" min="0.5" max="12" step="0.5" value="2.5"><span class="unit">kg</span></div></div>
+          </div>
+          <div class="actions"><button class="btn primary" id="test" type="button">Test <span aria-hidden="true">→</span></button><button class="btn reset" id="reset" type="button">Reset</button></div>
+          <div class="hint">Space to test · R to reset</div>
+        </div>
+        <div class="lab-note"><strong>How it works</strong>Fixed-step rigid-body solver with gravity, friction, restitution, contact impulses, and deterministic debris.</div>
+      </aside>
+      <main>
+        <div class="main-head"><div><div class="eyebrow">Live test track</div><h2>Impact sequence</h2></div><div class="run-state" id="run-state"><span class="state-dot"></span><span id="state-text">Ready to test</span></div></div>
+        <div class="stage" id="stage"><canvas id="scene" aria-label="Animated physics experiment showing a car crashing into a brick wall"></canvas><div class="stage-badge">Side elevation · 80 px / m</div></div>
+        <div class="telemetry" aria-live="polite"><div class="telemetry-item accent"><div class="telemetry-label">Car velocity</div><div class="telemetry-value"><span id="telemetry-speed">0.0</span> <em>m/s</em></div></div><div class="telemetry-item"><div class="telemetry-label">Elapsed time</div><div class="telemetry-value"><span id="telemetry-time">0.00</span> <em>s</em></div></div><div class="telemetry-item"><div class="telemetry-label">Moving bricks</div><div class="telemetry-value"><span id="telemetry-moving">0</span> <em>/ <span id="telemetry-total">192</span></em></div></div><div class="telemetry-item"><div class="telemetry-label">Wall integrity</div><div class="telemetry-value"><span id="telemetry-integrity">100</span><em> % standing</em></div></div></div>
+      </main>
+    </div>
+  </div>
+  <script>
+    (() => {
+      'use strict';
+      const $ = id => document.getElementById(id);
+      const canvas = $('scene'), ctx = canvas.getContext('2d'), stage = $('stage');
+      const SCALE = 80, GRAVITY = 9.81, BRICK_W = .50, BRICK_H = .24, CAR_W = 4.2, CAR_H = 1.45;
+      const defaults = { speed: 22, columns: 12, rows: 8, layers: 2, mass: 2.5 };
+      const settings = { ...defaults };
+      const controls = ['speed','columns','rows','layers','mass'];
+      let W = 1000, H = 600, dpr = 1, camera = { scale: SCALE, left: 0, ground: 0 }, car, bricks = [], particles = [], skidMarks = [], state = 'ready', elapsed = 0, accumulator = 0, last = 0, impact = 0, shake = 0, raf;
+      const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+      const fmt = n => Number(n).toFixed(1);
+      function syncControls() {
+        controls.forEach(key => { $(key).value = settings[key]; $(key + '-value').textContent = settings[key]; });
+        $('telemetry-total').textContent = settings.columns * settings.rows * settings.layers;
+      }
+      controls.forEach(key => $(key).addEventListener('input', e => { settings[key] = Number(e.target.value); $(key + '-value').textContent = e.target.value; if (state !== 'running') reset(); }));
+      function resize() {
+        const r = stage.getBoundingClientRect(); dpr = Math.min(devicePixelRatio || 1, 2); W = Math.max(320, r.width); H = Math.max(300, r.height); canvas.width = W * dpr; canvas.height = H * dpr; ctx.setTransform(dpr,0,0,dpr,0,0); camera.scale = Math.min(SCALE, W / 16.5); camera.ground = H - 64; camera.left = Math.max(0, (W / camera.scale - 16.5) / 2); render();
+      }
+      function wallLeft() { const wallWidth = settings.columns * BRICK_W; return Math.max(8.8, 13.5 - wallWidth / 2); }
+      function makeCar() { return { x: 1.2, y: CAR_H / 2, w: CAR_W, h: CAR_H, vx: 0, vy: 0, angle: 0, av: 0, mass: 1250, hit: false }; }
+      function makeBricks() {
+        bricks = []; const left = wallLeft(), base = .02;
+        let idx = 0;
+        for (let layer=0; layer<settings.layers; layer++) for (let row=0; row<settings.rows; row++) for (let col=0; col<settings.columns; col++) {
+          const stagger = row % 2 ? BRICK_W / 2 : 0;
+          const x = left + col * BRICK_W + stagger + layer * .045 - (row % 2 ? BRICK_W / 4 : 0);
+          const baseY = base + BRICK_H/2 + row*BRICK_H;
+          bricks.push({ id: idx++, x, y: baseY, baseY, w: BRICK_W-.018, h: BRICK_H-.014, vx:0, vy:0, angle:0, av:0, mass:settings.mass, asleep:false, settled:true, layer, row, col });
+        }
+      }
+      function reset() { cancelAnimationFrame(raf); state='ready'; elapsed=0; accumulator=0; impact=0; shake=0; particles=[]; skidMarks=[]; car=makeCar(); makeBricks(); $('state-text').textContent='Ready to test'; $('run-state').classList.remove('running'); updateUI(); render(); }
+      function start() { reset(); car.vx = settings.speed; state='running'; $('state-text').textContent='Simulation running'; $('run-state').classList.add('running'); last=performance.now(); raf=requestAnimationFrame(frame); }
+      function updateUI() {
+        const moving = bricks.filter(b => Math.abs(b.vx)>.15 || Math.abs(b.vy)>.15 || Math.abs(b.av)>.12).length;
+        const standing = bricks.filter(b => Math.abs(b.y - b.baseY) < .08 && Math.abs(b.angle)<.18).length;
+        $('telemetry-speed').textContent=fmt(Math.abs(car?.vx || 0)); $('telemetry-time').textContent=elapsed.toFixed(2); $('telemetry-moving').textContent=moving; $('telemetry-integrity').textContent=Math.round(100 * standing / Math.max(bricks.length,1));
+      }
+      function integrate(b, dt) { b.vy -= GRAVITY*dt; b.x += b.vx*dt; b.y += b.vy*dt; b.angle += b.av*dt; b.vx *= Math.pow(.999, dt*60); b.av *= Math.pow(.996, dt*60); }
+      function collideGround(b) {
+        const bottom = b.y - b.h/2;
+        if (bottom < 0) { b.y -= bottom; if (b.vy < 0) b.vy *= -.12; b.vx *= Math.max(0, 1 - .85*GRAVITY*0.035); b.av *= .88; if(Math.abs(b.vy)<.08)b.vy=0; }
+      }
+      function boxOverlap(a,b) { return { dx: b.x-a.x, dy: b.y-a.y, ox: (a.w+b.w)/2-Math.abs(b.x-a.x), oy:(a.h+b.h)/2-Math.abs(b.y-a.y) }; }
+      function brickBrick(a,b) {
+        const o=boxOverlap(a,b); if(o.ox<=0||o.oy<=0)return;
+        if(o.ox<o.oy) { const dir=o.dx<0?-1:1, push=o.ox/2; a.x-=dir*push; b.x+=dir*push; const rel=b.vx-a.vx; if(rel*dir<0){const imp=-(1+.18)*rel/(1/a.mass+1/b.mass)*dir; a.vx-=imp/a.mass; b.vx+=imp/b.mass;} const f=Math.min(Math.abs(rel)*.24, .55); a.vy-=f*dir; b.vy+=f*dir; } else { const dir=o.dy<0?-1:1, push=o.oy/2; a.y-=dir*push; b.y+=dir*push; const rel=b.vy-a.vy; if(rel*dir<0){const imp=-(1+.16)*rel/(1/a.mass+1/b.mass)*dir; a.vy-=imp/a.mass; b.vy+=imp/b.mass;} a.vx*=.96;b.vx*=.96; }
+      }
+      function carBrick(b) {
+        const o=boxOverlap(car,b); if(o.ox<=0||o.oy<=0)return false;
+        if(o.ox<o.oy) { const dir=o.dx<0?-1:1; car.x -= dir*o.ox; const rel=b.vx-car.vx; if(rel*dir<0){const impulse=-(1+.23)*rel/(1/car.mass+1/b.mass)*dir; car.vx-=impulse/car.mass; b.vx+=impulse/b.mass; b.av += (car.y-b.y)*impulse*1.8; b.vy -= Math.abs(impulse)*.035; } b.x += dir*.004; return true; }
+        const dir=o.dy<0?-1:1; b.y+=dir*o.oy; const rel=b.vy-car.vy; if(rel*dir<0){const impulse=-(1+.18)*rel/(1/car.mass+1/b.mass)*dir; b.vy+=impulse/b.mass;} return true;
+      }
+      function burst(x,y,amount) { for(let i=0;i<amount;i++){const t=i/Math.max(1,amount-1); particles.push({x:x+(t-.5)*.8,y:y+(i%3)*.12,vx:(t-.5)*2.8,vy:-(.6+(i%4)*.45),life:1, size:2+(i%3)});} }
+      function step(dt) {
+        elapsed += dt; impact = Math.max(0, impact-dt); shake=Math.max(0,shake-dt*2.8);
+        // The car is a grounded vehicle in this side-elevation bench, not a projectile.
+        car.y = CAR_H / 2; car.vy = 0;
+        car.vx *= Math.pow(.999 - .001*(settings.speed/45), dt*60); car.x += car.vx*dt; car.angle += car.av*dt; car.av*=.94;
+        let hitNow=false;
+        for(const b of bricks){
+          // Keep the assembled wall kinematically locked until the car makes contact.
+          // This prevents gravity/contact settling from destroying the initial structure.
+          if (car.hit) { integrate(b,dt); collideGround(b); }
+          if(carBrick(b)) hitNow=true;
+        }
+        if (car.hit || hitNow) for(let pass=0;pass<2;pass++) for(let i=0;i<bricks.length;i++) for(let j=i+1;j<bricks.length;j++) brickBrick(bricks[i],bricks[j]);
+        if(hitNow && !car.hit){ car.hit=true; impact=.34; shake=.42; burst(car.x+car.w/2, .55, 22); skidMarks.push({x:car.x,life:1}); }
+        if(car.hit && Math.abs(car.vx)<.12 && bricks.every(b=>Math.abs(b.vx)<.12&&Math.abs(b.vy)<.12)) { state='settled'; $('state-text').textContent='Test complete'; $('run-state').classList.remove('running'); }
+        for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=GRAVITY*dt*.22;p.life-=dt*1.8;} particles=particles.filter(p=>p.life>0);
+        for(const s of skidMarks)s.life-=dt*.08; skidMarks=skidMarks.filter(s=>s.life>0);
+        updateUI();
+      }
+      function worldX(x){return (x-camera.left)*camera.scale;} function worldY(y){return camera.ground-y*camera.scale;}
+      function roundRect(c,x,y,w,h,r){c.beginPath();c.roundRect(x,y,w,h,r);}
+      function drawBackground() {
+        const grad=ctx.createLinearGradient(0,0,0,H);grad.addColorStop(0,'#1a252e');grad.addColorStop(1,'#10171d');ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
+        ctx.strokeStyle='rgba(127,151,163,.065)';ctx.lineWidth=1; const horizon=worldY(2.9); for(let x=-((camera.left*SCALE)%48);x<W;x+=48){ctx.beginPath();ctx.moveTo(x,horizon);ctx.lineTo(x+90,H);ctx.stroke();} for(let y=horizon;y<H;y+=32){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+        ctx.fillStyle='#202b32';ctx.fillRect(0,camera.ground,W,H-camera.ground);ctx.fillStyle='#35454d';ctx.fillRect(0,camera.ground,W,2); ctx.fillStyle='rgba(255,141,77,.13)';ctx.fillRect(0,camera.ground+11,W,2);
+        ctx.fillStyle='#82919a';ctx.font='10px ui-monospace, SFMono-Regular, Menlo, monospace';ctx.globalAlpha=.7; for(let m=Math.ceil(camera.left);m<camera.left+W/camera.scale;m++){const x=worldX(m); if(x>0&&x<W){ctx.fillRect(x,camera.ground+7,1,8); if(m%2===0)ctx.fillText(m+' m',x-8,camera.ground+29);}}ctx.globalAlpha=1;
+        const wx=worldX(wallLeft()-0.18), wy=worldY(settings.rows*BRICK_H+.04);ctx.strokeStyle='rgba(110,231,220,.24)';ctx.setLineDash([3,4]);ctx.strokeRect(wx,wy,settings.columns*BRICK_W*camera.scale,settings.rows*BRICK_H*camera.scale);ctx.setLineDash([]);ctx.fillStyle='#7fa9a8';ctx.font='10px ui-monospace, SFMono-Regular, Menlo, monospace';ctx.fillText('WALL ZONE',wx,wy-7);
+      }
+      function drawBrick(b) { const x=worldX(b.x), y=worldY(b.y), w=b.w*camera.scale, h=b.h*camera.scale;ctx.save();ctx.translate(x,y);ctx.rotate(-b.angle); const depth=5;ctx.fillStyle=b.layer===0?'#d26d42':'#a75039';roundRect(ctx,-w/2+depth/2,-h/2+depth/2,w,h,2);ctx.fill();ctx.fillStyle=b.layer===0?'#df8354':'#b96348';roundRect(ctx,-w/2,-h/2,w-depth,h-depth,2);ctx.fill();ctx.strokeStyle='rgba(72,35,26,.65)';ctx.lineWidth=1;ctx.stroke();ctx.fillStyle='rgba(255,214,159,.2)';ctx.fillRect(-w/2+4,-h/2+3,w-10,1);ctx.restore(); }
+      function drawCar() { const x=worldX(car.x),y=worldY(car.y);ctx.save();ctx.translate(x,y);ctx.rotate(-car.angle); if(shake>0){ctx.translate(Math.sin(elapsed*90)*shake*3,Math.cos(elapsed*72)*shake*2);} const s=camera.scale; const w=car.w*s,h=car.h*s;ctx.fillStyle='rgba(0,0,0,.28)';ctx.beginPath();ctx.ellipse(0,h/2+4,w*.46,7,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#d45f39';roundRect(ctx,-w/2,-h*.12,w,h*.5,7);ctx.fill();ctx.fillStyle='#ec8150';ctx.beginPath();ctx.moveTo(-w*.30,-h*.12);ctx.lineTo(-w*.14,-h*.46);ctx.quadraticCurveTo(-w*.08,-h*.56,w*.07,-h*.55);ctx.lineTo(w*.30,-h*.12);ctx.closePath();ctx.fill();ctx.fillStyle='#172832';ctx.beginPath();ctx.moveTo(-w*.12,-h*.43);ctx.lineTo(-w*.06,-h*.49);ctx.lineTo(.04*w,-h*.49);ctx.lineTo(.12*w,-h*.16);ctx.lineTo(-.15*w,-h*.16);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(.08*w,-h*.49);ctx.lineTo(.25*w,-h*.16);ctx.lineTo(.31*w,-h*.16);ctx.lineTo(.22*w,-h*.43);ctx.closePath();ctx.fill();ctx.fillStyle='#ffba61';ctx.fillRect(w*.43,-h*.02,4,7);ctx.fillStyle='#101519'; for(const wx of [-.34,.32]){ctx.beginPath();ctx.arc(wx*w,h*.35,w*.105,0,Math.PI*2);ctx.fill();ctx.fillStyle='#89939a';ctx.beginPath();ctx.arc(wx*w,h*.35,w*.047,0,Math.PI*2);ctx.fill();ctx.fillStyle='#101519';}ctx.restore(); }
+      function render() { if(!car)return;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);drawBackground();for(const b of bricks)drawBrick(b);for(const s of skidMarks){ctx.globalAlpha=s.life*.45;ctx.fillStyle='#11161a';ctx.fillRect(worldX(s.x),camera.ground+4,Math.min(110,(car.w)*camera.scale),3);}ctx.globalAlpha=1;drawCar();for(const p of particles){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.life>.55?'#e5b675':'#9ca29f';ctx.beginPath();ctx.arc(worldX(p.x),worldY(p.y),p.size*(.6+p.life),0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;}
+      function frame(now){ if(state!=='running') { render(); return; } const real=Math.min(.05,(now-last)/1000);last=now;accumulator+=real;while(accumulator>=1/120){step(1/120);accumulator-=1/120;}render();raf=requestAnimationFrame(frame); }
+      $('test').addEventListener('click',start); $('reset').addEventListener('click',reset); window.addEventListener('keydown',e=>{if(e.target.matches('input'))return;if(e.code==='Space'){e.preventDefault();start();}if(e.key.toLowerCase()==='r')reset();}); new ResizeObserver(resize).observe(stage); syncControls(); reset();
+    })();
+  </script>
+</body>
+</html>
