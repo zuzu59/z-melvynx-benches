@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#080b13" />
+  <title>GPT 5.5</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: oklch(0.085 0 0);
+      --surface: oklch(0.125 0.012 262);
+      --surface-2: oklch(0.16 0.016 262);
+      --surface-3: oklch(0.205 0.02 262);
+      --line: oklch(0.3 0.025 262);
+      --line-soft: oklch(0.22 0.018 262);
+      --ink: oklch(0.94 0.012 262);
+      --muted: oklch(0.67 0.025 262);
+      --faint: oklch(0.47 0.022 262);
+      --primary: oklch(0.52 0.159 262.4);
+      --primary-bright: oklch(0.68 0.14 262);
+      --accent: oklch(0.76 0.16 73);
+      --danger: oklch(0.67 0.18 28);
+      --success: oklch(0.74 0.14 154);
+      --radius: 12px;
+      --shadow: 0 18px 50px oklch(0 0 0 / 0.28);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      letter-spacing: 0.005em;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    .app {
+      height: 100%;
+      display: grid;
+      grid-template-rows: 72px 1fr;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 0 28px;
+      border-bottom: 1px solid var(--line-soft);
+      background: oklch(0.10 0.008 262);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 210px; }
+    .brand-mark {
+      width: 30px; height: 30px; border-radius: 8px;
+      display: grid; place-items: center;
+      background: var(--primary);
+      color: white;
+      box-shadow: 0 0 0 4px oklch(0.52 0.159 262.4 / 0.12);
+      font-size: 13px; font-weight: 800;
+    }
+    .brand-name { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+    .brand-subtitle { color: var(--muted); font-size: 11px; margin-top: 2px; }
+    .topbar-center { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 12px; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); box-shadow: 0 0 12px var(--success); }
+    .topbar-meta { display: flex; gap: 20px; color: var(--faint); font-size: 11px; min-width: 210px; justify-content: flex-end; }
+    .workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 320px; }
+    .stage-wrap { min-width: 0; min-height: 0; padding: 20px; position: relative; }
+    .stage {
+      position: relative; width: 100%; height: 100%; min-height: 420px;
+      overflow: hidden; border: 1px solid var(--line-soft); border-radius: 16px;
+      background: oklch(0.11 0.018 262); box-shadow: var(--shadow);
+    }
+    canvas { display: block; width: 100%; height: 100%; }
+    .stage-heading { position: absolute; top: 20px; left: 22px; pointer-events: none; }
+    .stage-kicker { color: var(--primary-bright); font-size: 10px; font-weight: 750; letter-spacing: .13em; text-transform: uppercase; }
+    .stage-heading h1 { margin: 7px 0 0; font-size: 24px; line-height: 1.1; letter-spacing: -0.035em; font-weight: 700; }
+    .stage-heading p { margin: 7px 0 0; color: var(--muted); font-size: 12px; }
+    .scene-badge {
+      position: absolute; right: 18px; top: 18px; display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+      background: oklch(0.10 0.01 262 / .85); color: var(--muted); font-size: 11px;
+    }
+    .scene-badge strong { color: var(--ink); font-weight: 650; }
+    .telemetry {
+      position: absolute; left: 18px; right: 18px; top: 102px;
+      display: flex; align-items: stretch; justify-content: flex-start; gap: 8px;
+      pointer-events: none;
+    }
+    .metric { min-width: 105px; padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: 9px; background: oklch(0.09 0.01 262 / .82); }
+    .metric-label { color: var(--faint); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+    .metric-value { margin-top: 4px; color: var(--ink); font-variant-numeric: tabular-nums; font-size: 16px; font-weight: 700; }
+    .metric-value span { color: var(--muted); font-size: 11px; font-weight: 500; }
+    .control-panel { min-width: 0; padding: 23px 22px; overflow: auto; border-left: 1px solid var(--line-soft); background: var(--surface); }
+    .panel-title { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 7px; }
+    .panel-title h2 { margin: 0; font-size: 15px; letter-spacing: -0.015em; }
+    .panel-title span { color: var(--faint); font-size: 10px; }
+    .panel-intro { margin: 0 0 22px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .action-row { display: flex; gap: 9px; margin-bottom: 25px; }
+    .button { height: 40px; border: 1px solid transparent; border-radius: 8px; padding: 0 16px; font-weight: 700; transition: background 180ms ease, border-color 180ms ease, transform 100ms ease; }
+    .button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .button:active { transform: translateY(1px); }
+    .button-primary { flex: 1; background: var(--primary); color: white; }
+    .button-primary:hover { background: var(--primary-bright); }
+    .button-secondary { background: transparent; border-color: var(--line); color: var(--ink); }
+    .button-secondary:hover { background: var(--surface-2); border-color: var(--muted); }
+    .section-label { display: flex; align-items: center; gap: 9px; margin: 0 0 13px; color: var(--ink); font-size: 11px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
+    .section-label::after { content: ""; height: 1px; flex: 1; background: var(--line-soft); }
+    .control { margin-bottom: 17px; }
+    .control-head { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+    .control-label { color: var(--muted); font-size: 12px; }
+    .control-value { color: var(--ink); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    input[type="range"] { appearance: none; width: 100%; height: 4px; border-radius: 99px; background: var(--surface-3); accent-color: var(--primary-bright); }
+    input[type="range"]::-webkit-slider-thumb { appearance: none; width: 15px; height: 15px; border: 2px solid var(--surface); border-radius: 50%; background: var(--primary-bright); box-shadow: 0 0 0 1px var(--primary-bright); }
+    input[type="range"]::-moz-range-thumb { width: 12px; height: 12px; border: 2px solid var(--surface); border-radius: 50%; background: var(--primary-bright); }
+    .range-meta { display: flex; justify-content: space-between; margin-top: 6px; color: var(--faint); font-size: 10px; }
+    .divider { height: 1px; margin: 23px 0; background: var(--line-soft); }
+    .readout { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .readout-item { padding: 10px; border: 1px solid var(--line-soft); border-radius: 8px; background: oklch(0.145 0.014 262); }
+    .readout-item small { display: block; color: var(--faint); font-size: 10px; }
+    .readout-item strong { display: block; margin-top: 5px; color: var(--ink); font-size: 12px; font-variant-numeric: tabular-nums; }
+    .panel-foot { margin-top: 22px; color: var(--faint); font-size: 10px; line-height: 1.45; }
+    @media (max-width: 780px) {
+      body { overflow: auto; }
+      .app { height: auto; min-height: 100%; grid-template-rows: 64px auto; }
+      .topbar { padding: 0 16px; }
+      .topbar-center, .topbar-meta { display: none; }
+      .workspace { display: block; }
+      .stage-wrap { height: 62vh; min-height: 400px; padding: 12px; }
+      .control-panel { border-top: 1px solid var(--line-soft); border-left: 0; }
+      .telemetry { overflow-x: auto; justify-content: flex-start; }
+      .metric { flex: 0 0 105px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">G</div>
+        <div><div class="brand-name">GPT 5.5</div><div class="brand-subtitle">Applied physics lab</div></div>
+      </div>
+      <div class="topbar-center"><span class="status-dot" aria-hidden="true"></span><span id="runStatus">Ready for test</span></div>
+      <div class="topbar-meta"><span>RIG 02</span><span>SI UNITS</span></div>
+    </header>
+    <main class="workspace">
+      <section class="stage-wrap" aria-label="Crash experiment visualization">
+        <div class="stage">
+          <canvas id="scene" aria-label="2D simulation of a car crashing into a brick wall"></canvas>
+          <div class="stage-heading"><div class="stage-kicker">Collision study / 002</div><h1>Car → brick wall</h1><p>Impulse, friction, and structural failure</p></div>
+          <div class="scene-badge"><span class="status-dot" aria-hidden="true"></span><strong id="sceneState">STANDBY</strong></div>
+          <div class="telemetry" aria-live="polite">
+            <div class="metric"><div class="metric-label">Car speed</div><div class="metric-value" id="speedReadout">0.0 <span>m/s</span></div></div>
+            <div class="metric"><div class="metric-label">Elapsed</div><div class="metric-value" id="timeReadout">0.00 <span>s</span></div></div>
+            <div class="metric"><div class="metric-label">Moving bricks</div><div class="metric-value" id="brickReadout">0 <span>/ 192</span></div></div>
+          </div>
+        </div>
+      </section>
+      <aside class="control-panel">
+        <div class="panel-title"><h2>Experiment controls</h2><span>v1.0</span></div>
+        <p class="panel-intro">Tune the rig, then run a repeatable crash. The wall is simulated as individual rigid bodies.</p>
+        <div class="action-row"><button class="button button-primary" id="testButton" type="button">Test</button><button class="button button-secondary" id="resetButton" type="button">Reset</button></div>
+        <div class="section-label">Parameters</div>
+        <div class="control"><div class="control-head"><label class="control-label" for="speed">Car speed</label><output class="control-value" id="speedValue">22 m/s</output></div><input id="speed" type="range" min="5" max="45" step="1" value="22"><div class="range-meta"><span>5 m/s</span><span>45 m/s</span></div></div>
+        <div class="control"><div class="control-head"><label class="control-label" for="columns">Wall columns</label><output class="control-value" id="columnsValue">12</output></div><input id="columns" type="range" min="4" max="24" step="1" value="12"><div class="range-meta"><span>4</span><span>24</span></div></div>
+        <div class="control"><div class="control-head"><label class="control-label" for="rows">Wall rows</label><output class="control-value" id="rowsValue">8</output></div><input id="rows" type="range" min="3" max="16" step="1" value="8"><div class="range-meta"><span>3</span><span>16</span></div></div>
+        <div class="control"><div class="control-head"><label class="control-label" for="layers">Depth layers</label><output class="control-value" id="layersValue">2</output></div><input id="layers" type="range" min="1" max="5" step="1" value="2"><div class="range-meta"><span>1</span><span>5</span></div></div>
+        <div class="control"><div class="control-head"><label class="control-label" for="mass">Brick mass</label><output class="control-value" id="massValue">2.5 kg</output></div><input id="mass" type="range" min="0.5" max="12" step="0.5" value="2.5"><div class="range-meta"><span>0.5 kg</span><span>12 kg</span></div></div>
+        <div class="divider"></div>
+        <div class="section-label">Fixed rig constants</div>
+        <div class="readout"><div class="readout-item"><small>Brick size</small><strong>0.50 × 0.24 m</strong></div><div class="readout-item"><small>Car mass</small><strong>1,250 kg</strong></div><div class="readout-item"><small>Gravity</small><strong>9.81 m/s²</strong></div><div class="readout-item"><small>Scale</small><strong>80 px / m</strong></div></div>
+        <p class="panel-foot">Deterministic run · fixed timestep 120 Hz<br>Ground μ 0.85 · Brick μ 0.72 · e 0.18</p>
+      </aside>
+    </main>
+  </div>
+<script>
+(() => {
+  "use strict";
+  const canvas = document.getElementById("scene");
+  const ctx = canvas.getContext("2d");
+  const $ = (id) => document.getElementById(id);
+  const FIXED = 1 / 120;
+  const SCALE = 80;
+  const WORLD_W = 36;
+  const WALL_CENTER = 18;
+  const GRAVITY = 9.81;
+  const BRICK_W = 0.50;
+  const BRICK_H = 0.24;
+  const BRICK_FRICTION = 0.72;
+  const GROUND_FRICTION = 0.85;
+  const RESTITUTION = 0.18;
+  const CAR_MASS = 1250;
+  const CAR_W = 4.2;
+  const CAR_H = 1.45;
+  const settings = { speed: 22, columns: 12, rows: 8, layers: 2, mass: 2.5 };
+  const state = { bodies: [], car: null, particles: [], running: false, elapsed: 0, accumulator: 0, lastFrame: 0, seed: 17, impact: false, shake: 0, stillTime: 0 };
+
+  function rand() { state.seed = (state.seed * 1664525 + 1013904223) >>> 0; return state.seed / 4294967296; }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function cross(a, b) { return a.x * b.y - a.y * b.x; }
+  function rotate(v, angle) { const c = Math.cos(angle), s = Math.sin(angle); return { x: v.x * c - v.y * s, y: v.x * s + v.y * c }; }
+  function add(a, b) { return { x: a.x + b.x, y: a.y + b.y }; }
+  function sub(a, b) { return { x: a.x - b.x, y: a.y - b.y }; }
+  function dot(a, b) { return a.x * b.x + a.y * b.y; }
+  function length(v) { return Math.hypot(v.x, v.y); }
+
+  function makeBody({ x, y, w, h, mass, type, row = 0, layer = 0 }) {
+    return { x, y, w, h, mass, invMass: 1 / mass, invI: 12 / (mass * (w * w + h * h)), angle: 0, vx: 0, vy: 0, omega: 0, type, row, layer, locked: false, sleeping: false, crumple: 0 };
+  }
+  function wallLeft() { return Math.max(7.5, WALL_CENTER - settings.columns * BRICK_W / 2 - 0.12); }
+  function resetScene() {
+    state.bodies = [];
+    state.particles = [];
+    state.elapsed = 0;
+    state.accumulator = 0;
+    state.seed = 17;
+    state.impact = false;
+    state.shake = 0;
+    state.stillTime = 0;
+    state.running = false;
+    const car = makeBody({ x: 2.5, y: CAR_H / 2, w: CAR_W, h: CAR_H, mass: CAR_MASS, type: "car" });
+    state.car = car;
+    state.bodies.push(car);
+    const left = wallLeft();
+    for (let layer = 0; layer < settings.layers; layer++) {
+      for (let row = 0; row < settings.rows; row++) {
+        const stagger = row % 2 ? 0.25 : 0;
+        for (let col = 0; col < settings.columns; col++) {
+          const x = left + (col + 0.5) * BRICK_W + stagger + (layer - (settings.layers - 1) / 2) * 0.06;
+          const y = BRICK_H / 2 + row * BRICK_H + 0.003;
+          const brick = makeBody({ x, y, w: BRICK_W * 0.98, h: BRICK_H * 0.94, mass: settings.mass, type: "brick", row, layer });
+          brick.locked = true;
+          brick.invMass = 0;
+          brick.invI = 0;
+          state.bodies.push(brick);
+        }
+      }
+    }
+    updateUI();
+    draw();
+  }
+  function launch() {
+    resetScene();
+    state.running = true;
+    state.car.vx = settings.speed;
+    state.car.vy = 0;
+    updateStatus("RUNNING", "Test in progress");
+  }
+
+  function axes(body) {
+    const c = Math.cos(body.angle), s = Math.sin(body.angle);
+    return [{ x: c, y: s }, { x: -s, y: c }];
+  }
+  function vertices(body) {
+    const hw = body.w / 2, hh = body.h / 2;
+    return [[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]].map(([x,y]) => { const r = rotate({x,y}, body.angle); return { x: body.x + r.x, y: body.y + r.y }; });
+  }
+  function bounds(body) {
+    const ax = Math.abs(Math.cos(body.angle)) * body.w / 2 + Math.abs(Math.sin(body.angle)) * body.h / 2;
+    const ay = Math.abs(Math.sin(body.angle)) * body.w / 2 + Math.abs(Math.cos(body.angle)) * body.h / 2;
+    return { minX: body.x - ax, maxX: body.x + ax, minY: body.y - ay, maxY: body.y + ay };
+  }
+  function collide(a, b) {
+    const allAxes = axes(a).concat(axes(b));
+    let smallest = Infinity, normal = null;
+    const av = vertices(a), bv = vertices(b);
+    for (const axis of allAxes) {
+      let amin = Infinity, amax = -Infinity, bmin = Infinity, bmax = -Infinity;
+      for (const p of av) { const q = dot(p, axis); amin = Math.min(amin,q); amax = Math.max(amax,q); }
+      for (const p of bv) { const q = dot(p, axis); bmin = Math.min(bmin,q); bmax = Math.max(bmax,q); }
+      const overlap = Math.min(amax, bmax) - Math.max(amin, bmin);
+      if (overlap <= 0) return null;
+      if (overlap < smallest) { smallest = overlap; normal = axis; }
+    }
+    if (dot({ x: b.x - a.x, y: b.y - a.y }, normal) < 0) normal = { x: -normal.x, y: -normal.y };
+    return { normal, depth: smallest };
+  }
+  function support(body, direction) {
+    const pts = vertices(body); let best = pts[0], bestDot = dot(best, direction);
+    for (let i = 1; i < pts.length; i++) { const d = dot(pts[i], direction); if (d > bestDot) { best = pts[i]; bestDot = d; } }
+    return best;
+  }
+  function applyImpulse(body, impulse, r) {
+    body.vx += impulse.x * body.invMass;
+    body.vy += impulse.y * body.invMass;
+    body.omega += cross(r, impulse) * body.invI;
+  }
+  function resolvePair(a, b, hit) {
+    if ((a.type === "car" || b.type === "car") && (a.locked || b.locked)) triggerImpact();
+    const n = hit.normal;
+    const invSum = a.invMass + b.invMass;
+    if (!invSum) return;
+    const correction = Math.max(hit.depth - 0.001, 0) * 0.84 / invSum;
+    a.x -= n.x * correction * a.invMass; a.y -= n.y * correction * a.invMass;
+    b.x += n.x * correction * b.invMass; b.y += n.y * correction * b.invMass;
+    const pa = support(a, n), pb = support(b, { x: -n.x, y: -n.y });
+    const contact = { x: (pa.x + pb.x) / 2, y: (pa.y + pb.y) / 2 };
+    const ra = { x: contact.x - a.x, y: contact.y - a.y }, rb = { x: contact.x - b.x, y: contact.y - b.y };
+    const va = { x: a.vx - a.omega * ra.y, y: a.vy + a.omega * ra.x };
+    const vb = { x: b.vx - b.omega * rb.y, y: b.vy + b.omega * rb.x };
+    const rv = sub(vb, va), normalSpeed = dot(rv, n);
+    if (normalSpeed > 0) return;
+    const raN = cross(ra, n), rbN = cross(rb, n);
+    const denom = invSum + raN * raN * a.invI + rbN * rbN * b.invI;
+    const impulseMag = -(1 + RESTITUTION) * normalSpeed / denom;
+    const impulse = { x: n.x * impulseMag, y: n.y * impulseMag };
+    applyImpulse(a, { x: -impulse.x, y: -impulse.y }, ra); applyImpulse(b, impulse, rb);
+    const tangentRaw = sub(rv, { x: n.x * normalSpeed, y: n.y * normalSpeed });
+    const tangentLength = length(tangentRaw);
+    if (tangentLength > 0.0001) {
+      const t = { x: tangentRaw.x / tangentLength, y: tangentRaw.y / tangentLength };
+      const rtA = cross(ra, t), rtB = cross(rb, t);
+      const tDenom = invSum + rtA * rtA * a.invI + rtB * rtB * b.invI;
+      const jt = -dot(rv, t) / tDenom;
+      const friction = (a.type === "car" || b.type === "car") ? 0.28 : Math.min(BRICK_FRICTION, GROUND_FRICTION);
+      const maxFriction = impulseMag * friction;
+      const frictionImpulse = { x: t.x * clamp(jt, -maxFriction, maxFriction), y: t.y * clamp(jt, -maxFriction, maxFriction) };
+      applyImpulse(a, { x: -frictionImpulse.x, y: -frictionImpulse.y }, ra); applyImpulse(b, frictionImpulse, rb);
+    }
+    if (a.type === "car" || b.type === "car") {
+      if (!state.impact) triggerImpact();
+    }
+  }
+  function resolveGround(body) {
+    const pts = vertices(body); let lowest = pts[0];
+    for (const p of pts) if (p.y < lowest.y) lowest = p;
+    if (lowest.y >= 0) return;
+    body.y -= lowest.y * 0.96;
+    const correctedLowest = vertices(body).reduce((lowestPoint, point) => point.y < lowestPoint.y ? point : lowestPoint);
+    const r = { x: correctedLowest.x - body.x, y: correctedLowest.y - body.y };
+    const n = { x: 0, y: 1 };
+    const velocity = { x: body.vx - body.omega * r.y, y: body.vy + body.omega * r.x };
+    const vn = dot(velocity, n);
+    if (vn < 0) {
+      const rn = cross(r, n);
+      const denom = body.invMass + rn * rn * body.invI;
+      const j = -(1 + RESTITUTION * 0.55) * vn / denom;
+      applyImpulse(body, { x: 0, y: j }, r);
+      const tangent = { x: 1, y: 0 };
+      const vt = body.vx - body.omega * r.y;
+      const rt = cross(r, tangent);
+      const jt = -vt / (body.invMass + rt * rt * body.invI);
+      const max = j * GROUND_FRICTION;
+      applyImpulse(body, { x: clamp(jt, -max, max), y: 0 }, r);
+    }
+    if (Math.abs(body.vy) < 0.035) body.vy = 0;
+    if (Math.abs(body.omega) < 0.018) body.omega = 0;
+  }
+  function broadPairs() {
+    const grid = new Map(), pairs = new Set(), cell = 0.75;
+    state.bodies.forEach((body, i) => {
+      const b = bounds(body); const x0 = Math.floor(b.minX / cell), x1 = Math.floor(b.maxX / cell), y0 = Math.floor(b.minY / cell), y1 = Math.floor(b.maxY / cell);
+      for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) { const key = x + ":" + y; if (!grid.has(key)) grid.set(key, []); grid.get(key).push(i); }
+    });
+    for (const list of grid.values()) for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) { const a = Math.min(list[i], list[j]), b = Math.max(list[i], list[j]); pairs.add(a + ":" + b); }
+    return [...pairs].map(k => k.split(":").map(Number));
+  }
+  function triggerImpact() {
+    state.impact = true; state.shake = 1;
+    state.car.crumple = 1;
+    for (const body of state.bodies) {
+      if (body.type === "brick" && body.locked) {
+        body.locked = false;
+        body.invMass = 1 / body.mass;
+        body.invI = 12 / (body.mass * (body.w * body.w + body.h * body.h));
+      }
+    }
+    for (let i = 0; i < 28; i++) {
+      const x = wallLeft() + rand() * Math.min(settings.columns * BRICK_W, 3.5);
+      state.particles.push({ x, y: 0.1 + rand() * 0.9, vx: -2 - rand() * 4, vy: 1 + rand() * 3, life: 0.7 + rand() * 0.8, max: 1.5, size: 0.025 + rand() * 0.06, dust: true });
+    }
+  }
+  function physicsStep(dt) {
+    for (const body of state.bodies) {
+      if (body.locked) continue;
+      body.vy -= GRAVITY * dt;
+      body.x += body.vx * dt; body.y += body.vy * dt; body.angle += body.omega * dt;
+      body.vx *= 0.9985; body.vy *= 0.9995; body.omega *= 0.996;
+      if (state.impact && body.type === "brick") { body.vx *= 0.985; body.vy *= 0.985; body.omega *= 0.96; }
+      if (body.x < -1) { body.x = -1; body.vx = Math.abs(body.vx) * 0.2; }
+      if (body.x > WORLD_W + 4) { body.x = WORLD_W + 4; body.vx = 0; }
+      resolveGround(body);
+      const nearGround = body.y < 1.25 && Math.abs(body.vy) < 0.25;
+      if (nearGround) {
+        body.vx *= body.type === "car" ? 0.9998 : 0.994;
+        body.omega *= body.type === "car" ? 0.999 : 0.94;
+      }
+      if (Math.abs(body.vx) < 0.012) body.vx = 0;
+      if (Math.abs(body.omega) < 0.012) body.omega = 0;
+    }
+    for (let iteration = 0; iteration < 2; iteration++) {
+      for (const [i, j] of broadPairs()) { const a = state.bodies[i], b = state.bodies[j]; const hit = collide(a, b); if (hit) resolvePair(a, b, hit); }
+      for (const body of state.bodies) resolveGround(body);
+    }
+    if (state.impact && state.car.x < wallLeft() + settings.columns * BRICK_W + 2.6) {
+      state.car.vx += 13 * dt;
+      if (state.car.vx < 0) state.car.vx *= 0.82;
+    }
+    const speed = Math.abs(state.car.vx);
+    if (state.impact && speed < 0.2 && state.bodies.every((b, i) => i === 0 || (Math.abs(b.vx) < 0.2 && Math.abs(b.vy) < 0.2 && Math.abs(b.omega) < 0.2))) state.stillTime += dt; else state.stillTime = 0;
+    const debrisLow = state.bodies.slice(1).every(body => body.y < 3.2);
+    if (state.stillTime > 0.8 || (state.impact && state.elapsed > 8 && debrisLow)) {
+      state.running = false;
+      for (const body of state.bodies) { if (body.type === "brick") { body.vx = 0; body.vy = 0; body.omega = 0; } }
+      updateStatus("SETTLED", "Debris settled");
+    }
+  }
+  function updateParticles(dt) {
+    for (const p of state.particles) { p.life -= dt; p.vy -= 6 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= .985; }
+    state.particles = state.particles.filter(p => p.life > 0);
+  }
+
+  function resize() { const rect = canvas.getBoundingClientRect(); const dpr = Math.min(window.devicePixelRatio || 1, 2); canvas.width = Math.max(1, Math.round(rect.width * dpr)); canvas.height = Math.max(1, Math.round(rect.height * dpr)); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); draw(); }
+  function view() { const w = canvas.clientWidth, h = canvas.clientHeight; const scale = Math.min(SCALE, (w - 52) / WORLD_W, (h - 92) / 8.5); return { w, h, scale, ox: (w - WORLD_W * scale) / 2, ground: h - 56 }; }
+  function sx(x, v) { return v.ox + x * v.scale; }
+  function sy(y, v) { return v.ground - y * v.scale; }
+  function drawRoundedRect(x,y,w,h,r,fill,stroke) { ctx.beginPath(); ctx.roundRect(x,y,w,h,r); ctx.fillStyle=fill; ctx.fill(); if (stroke) { ctx.strokeStyle=stroke; ctx.stroke(); } }
+  function drawEnvironment(v) {
+    ctx.fillStyle = "oklch(0.11 0.018 262)"; ctx.fillRect(0, 0, v.w, v.h);
+    ctx.fillStyle = "oklch(0.145 0.025 262)"; ctx.fillRect(0, v.ground - 250, v.w, 250);
+    const horizon = v.ground - 164;
+    ctx.fillStyle = "oklch(0.13 0.026 262)";
+    ctx.beginPath(); ctx.moveTo(0,horizon+36); ctx.lineTo(0,horizon+8); ctx.lineTo(v.w*.12,horizon+22); ctx.lineTo(v.w*.24,horizon-5); ctx.lineTo(v.w*.38,horizon+20); ctx.lineTo(v.w*.54,horizon+2); ctx.lineTo(v.w*.68,horizon+23); ctx.lineTo(v.w*.82,horizon-13); ctx.lineTo(v.w,horizon+15); ctx.lineTo(v.w,horizon+36); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "oklch(0.115 0.02 262)";
+    for (const building of [[.04,42,25],[.12,26,35],[.2,54,22],[.29,34,31],[.4,48,25],[.5,29,37],[.63,46,26],[.73,24,35],[.84,49,22],[.93,31,29]]) {
+      const bx=v.w*building[0], bw=v.w*.045, by=horizon+building[1]; ctx.fillRect(bx,by,bw,building[2]);
+      ctx.fillStyle="oklch(0.45 0.08 73 / .35)"; ctx.fillRect(bx+bw*.28,by+8,2,2); ctx.fillRect(bx+bw*.67,by+20,2,2); ctx.fillStyle="oklch(0.115 0.02 262)";
+    }
+    ctx.strokeStyle="oklch(0.33 0.055 262 / .7)"; ctx.lineWidth=1;
+    for (const lx of [2.2, 22.2]) { const px=sx(lx,v); ctx.beginPath(); ctx.moveTo(px,horizon+4); ctx.lineTo(px,horizon+72); ctx.stroke(); ctx.beginPath(); ctx.moveTo(px-14,horizon+4); ctx.lineTo(px+14,horizon+4); ctx.stroke(); ctx.fillStyle="oklch(0.72 0.15 73 / .18)"; ctx.beginPath(); ctx.arc(px,horizon+7,5,0,Math.PI*2); ctx.fill(); }
+    ctx.fillStyle="oklch(0.58 0.03 262 / .3)"; ctx.font="10px ui-monospace, monospace"; ctx.textAlign="left"; ctx.fillText("TEST TRACK  /  IMPACT ZONE", sx(0.8,v), horizon+92);
+  }
+  function draw() {
+    const v = view(); if (!v.w || !v.h) return;
+    ctx.save(); ctx.clearRect(0,0,v.w,v.h);
+    drawEnvironment(v);
+    ctx.strokeStyle = "oklch(0.22 0.025 262 / .7)"; ctx.lineWidth = 1;
+    for (let x = 0; x <= WORLD_W; x += 2) { ctx.beginPath(); ctx.moveTo(sx(x,v), v.ground - 205); ctx.lineTo(sx(x,v), v.ground); ctx.stroke(); }
+    for (let y = 1; y <= 6; y++) { ctx.beginPath(); ctx.moveTo(0, sy(y,v)); ctx.lineTo(v.w, sy(y,v)); ctx.stroke(); }
+    ctx.fillStyle = "oklch(0.19 0.03 262)"; ctx.fillRect(0, v.ground, v.w, v.h - v.ground);
+    ctx.strokeStyle = "oklch(0.38 0.05 262)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0,v.ground); ctx.lineTo(v.w,v.ground); ctx.stroke();
+    const impactMarker = sx(wallLeft(), v);
+    ctx.strokeStyle = "oklch(0.76 0.16 73 / .34)"; ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.moveTo(impactMarker,v.ground-27); ctx.lineTo(impactMarker,v.ground+2); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = "oklch(0.76 0.16 73 / .65)"; ctx.font="10px ui-monospace, monospace"; ctx.textAlign="center"; ctx.fillText("IMPACT", impactMarker, v.ground-34);
+    ctx.strokeStyle = "oklch(0.40 0.06 262 / .7)"; ctx.lineWidth = 1;
+    for (let x = 0; x <= WORLD_W; x += 2) { const px = sx(x,v); ctx.beginPath(); ctx.moveTo(px,v.ground+1); ctx.lineTo(px,v.ground+7); ctx.stroke(); ctx.fillStyle="oklch(0.52 0.03 262)"; ctx.font="10px ui-monospace, monospace"; ctx.textAlign="center"; ctx.fillText(x + "m",px,v.ground+22); }
+    const shakeX = state.shake > 0 ? Math.sin(state.elapsed * 91) * state.shake * 3 : 0;
+    ctx.translate(shakeX, 0);
+    const bricks = state.bodies.filter(b => b.type === "brick").slice().sort((a,b) => a.y - b.y);
+    for (const b of bricks) drawBrick(b, v);
+    drawParticles(v);
+    drawCar(state.car, v);
+    ctx.restore();
+    updateUI();
+  }
+  function drawBrick(b,v) {
+    const x=sx(b.x,v), y=sy(b.y,v), w=b.w*v.scale, h=b.h*v.scale;
+    ctx.save(); ctx.translate(x,y); ctx.rotate(-b.angle);
+    const hue = b.layer % 2 ? "oklch(0.52 0.105 36)" : "oklch(0.58 0.115 38)";
+    ctx.fillStyle = "oklch(0.08 0.01 262 / .8)"; ctx.fillRect(-w/2+2,-h/2+3,w,h);
+    ctx.fillStyle = hue; ctx.fillRect(-w/2,-h/2,w,h);
+    ctx.strokeStyle = "oklch(0.72 0.12 48 / .65)"; ctx.lineWidth = 1; ctx.strokeRect(-w/2+.5,-h/2+.5,w-1,h-1);
+    ctx.strokeStyle = "oklch(0.35 0.07 30 / .75)"; ctx.beginPath(); ctx.moveTo(-w*.26,-h/2+2); ctx.lineTo(-w*.2,h/2-2); ctx.stroke();
+    ctx.restore();
+  }
+  function drawCar(car,v) {
+    if (!car) return;
+    const x=sx(car.x,v), y=sy(car.y,v), w=car.w*v.scale, h=car.h*v.scale;
+    const damage = car.crumple || 0;
+    const nose = .51 - damage * .06;
+    const wheelY = h * .34, wheelR = Math.max(9, h * .205);
+    ctx.save(); ctx.translate(x,y); ctx.rotate(-car.angle);
+    ctx.fillStyle="oklch(0.02 0 0 / .72)"; ctx.beginPath(); ctx.ellipse(0,h*.52,w*.48,h*.12,0,0,Math.PI*2); ctx.fill();
+    if (Math.abs(car.vx) > 1) {
+      ctx.strokeStyle="oklch(0.72 0.16 73 / .2)"; ctx.lineCap="round"; ctx.lineWidth=2;
+      for (let i=1;i<4;i++) { ctx.beginPath(); ctx.moveTo(-w*.58-i*9,-h*.05+i*4); ctx.lineTo(-w*.58-i*30,-h*.05+i*4); ctx.stroke(); }
+    }
+    for (const wx of [-w*.31,w*.31]) {
+      ctx.fillStyle="oklch(0.035 0 0)"; ctx.beginPath(); ctx.arc(wx,wheelY,wheelR+2,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle="oklch(0.12 0.015 262)"; ctx.beginPath(); ctx.arc(wx,wheelY,wheelR*.67,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle="oklch(0.54 0.03 262)"; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(wx,wheelY,wheelR*.57,0,Math.PI*2); ctx.stroke();
+      ctx.fillStyle="oklch(0.72 0.04 262)"; ctx.beginPath(); ctx.arc(wx,wheelY,wheelR*.16,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle="oklch(0.48 0.04 262 / .8)"; ctx.lineWidth=1; for(let k=0;k<4;k++){const a=k*Math.PI/2;ctx.beginPath();ctx.moveTo(wx+Math.cos(a)*wheelR*.18,wheelY+Math.sin(a)*wheelR*.18);ctx.lineTo(wx+Math.cos(a)*wheelR*.5,wheelY+Math.sin(a)*wheelR*.5);ctx.stroke();}
+    }
+    ctx.fillStyle="oklch(0.37 0.12 262)"; ctx.strokeStyle="oklch(0.73 0.1 262)"; ctx.lineWidth=1.5;
+    ctx.beginPath();
+    ctx.moveTo(-w*.51,h*.19); ctx.lineTo(-w*.49,-h*.06); ctx.lineTo(-w*.34,-h*.13);
+    ctx.lineTo(-w*.19,-h*.51); ctx.quadraticCurveTo(-w*.13,-h*.59,-w*.02,-h*.59);
+    ctx.lineTo(w*.19,-h*.59); ctx.quadraticCurveTo(w*.27,-h*.57,w*.32,-h*.38);
+    ctx.lineTo(w*(.4 - damage*.05),-h*.13); ctx.lineTo(w*(nose - .01),-h*.08); ctx.lineTo(w*nose,h*(.19 + damage*.04));
+    ctx.quadraticCurveTo(w*(.48 - damage*.05),h*.28,w*.37,h*.29); ctx.lineTo(-w*.39,h*.29); ctx.quadraticCurveTo(-w*.49,h*.28,-w*.51,h*.19); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle="oklch(0.48 0.12 262)"; ctx.beginPath(); ctx.moveTo(-w*.17,-h*.47); ctx.lineTo(-w*.1,-h*.54); ctx.lineTo(-w*.02,-h*.54); ctx.lineTo(-w*.04,-h*.17); ctx.lineTo(-w*.25,-h*.17); ctx.closePath(); ctx.fill();
+    ctx.fillStyle="oklch(0.2 0.045 262)"; ctx.strokeStyle="oklch(0.61 0.07 262)"; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(-w*.13,-h*.47); ctx.lineTo(-w*.06,-h*.54); ctx.lineTo(w*.07,-h*.54); ctx.lineTo(w*.14,-h*.18); ctx.lineTo(-w*.02,-h*.18); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(w*.1,-h*.53); ctx.lineTo(w*.19,-h*.51); ctx.lineTo(w*.29,-h*.19); ctx.lineTo(w*.15,-h*.19); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle="oklch(0.23 0.05 262)"; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(-w*.04,-h*.15); ctx.lineTo(-w*.04,h*.22); ctx.moveTo(w*.16,-h*.15); ctx.lineTo(w*.2,h*.21); ctx.stroke();
+    ctx.fillStyle="oklch(0.82 0.13 92)"; ctx.beginPath(); ctx.roundRect(w*(.445 - damage*.05),-h*.07,w*.055,h*.1,2); ctx.fill();
+    if (damage > 0) { ctx.strokeStyle="oklch(0.77 0.14 73 / .75)"; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(w*nose,h*.03); ctx.lineTo(w*(nose-.08),h*.13); ctx.lineTo(w*(nose-.02),h*.23); ctx.stroke(); }
+    ctx.fillStyle="oklch(0.68 0.15 25)"; ctx.beginPath(); ctx.roundRect(-w*.5,-h*.04,w*.045,h*.1,2); ctx.fill();
+    ctx.fillStyle="oklch(0.82 0.13 92)"; ctx.beginPath(); ctx.arc(w*.47,h*.16,2.2,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle="oklch(0.12 0.02 262)"; ctx.beginPath(); ctx.roundRect(w*.02,h*.02,w*.12,2,1); ctx.fill();
+    ctx.restore();
+  }
+  function drawParticles(v) {
+    for (const p of state.particles) { ctx.globalAlpha = clamp(p.life / p.max, 0, 1) * .55; ctx.fillStyle = p.dust ? "oklch(0.72 0.09 65)" : "oklch(0.8 0.16 65)"; ctx.beginPath(); ctx.arc(sx(p.x,v),sy(Math.max(0,p.y),v),Math.max(1,p.size*v.scale),0,Math.PI*2); ctx.fill(); }
+    ctx.globalAlpha=1;
+  }
+  function updateUI() {
+    const speed = state.car ? Math.hypot(state.car.vx, state.car.vy) : 0;
+    const moving = state.bodies.filter((b,i) => i > 0 && (Math.hypot(b.vx,b.vy) > .28 || Math.abs(b.omega) > .22)).length;
+    $("speedReadout").innerHTML = speed.toFixed(1) + ' <span>m/s</span>';
+    $("timeReadout").innerHTML = state.elapsed.toFixed(2) + ' <span>s</span>';
+    $("brickReadout").innerHTML = moving + ' <span>/ ' + (settings.columns * settings.rows * settings.layers) + '</span>';
+    $("sceneState").textContent = state.running ? (state.impact ? "IMPACT" : "RUNNING") : (state.impact ? "SETTLED" : "STANDBY");
+  }
+  function updateStatus(scene, text) { $("sceneState").textContent = scene; $("runStatus").textContent = text; }
+  function bindSetting(id, key, format) {
+    const input=$(id), output=$(id+"Value");
+    input.addEventListener("input", () => { settings[key] = Number(input.value); output.textContent = format(settings[key]); resetScene(); $("runStatus").textContent = "Parameters updated"; });
+  }
+  bindSetting("speed", "speed", v => v + " m/s");
+  bindSetting("columns", "columns", v => v);
+  bindSetting("rows", "rows", v => v);
+  bindSetting("layers", "layers", v => v);
+  bindSetting("mass", "mass", v => v.toFixed(1) + " kg");
+  $("testButton").addEventListener("click", launch);
+  $("resetButton").addEventListener("click", () => { resetScene(); updateStatus("STANDBY", "Ready for test"); });
+  window.addEventListener("keydown", e => { if (e.code === "Space" && document.activeElement.tagName !== "INPUT") { e.preventDefault(); launch(); } });
+  window.addEventListener("resize", resize);
+
+  function frame(now) {
+    if (!state.lastFrame) state.lastFrame = now;
+    const elapsed = Math.min((now - state.lastFrame) / 1000, .05); state.lastFrame = now;
+    if (state.running) {
+      state.accumulator += elapsed;
+      let steps = 0;
+      while (state.accumulator >= FIXED && steps < 8) { physicsStep(FIXED); updateParticles(FIXED); state.elapsed += FIXED; state.accumulator -= FIXED; steps++; }
+      state.shake *= .88; if (state.shake < .01) state.shake=0;
+    }
+    draw(); requestAnimationFrame(frame);
+  }
+  resetScene(); resize(); requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
