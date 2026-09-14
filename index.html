@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#071018" />
+  <title>GPT 5.6 Luna — Brick Wall Crash</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #071018;
+      --panel: #0d1822;
+      --panel-2: #101f2b;
+      --panel-3: #132735;
+      --line: rgba(165, 206, 226, 0.14);
+      --line-strong: rgba(165, 206, 226, 0.28);
+      --text: #e9f5fa;
+      --muted: #87a0ad;
+      --soft: #bbd1d9;
+      --cyan: #67e8f9;
+      --cyan-dim: #1e6979;
+      --orange: #ffb86b;
+      --red: #ff6b6b;
+      --green: #76e0ad;
+      --shadow: 0 22px 50px rgba(0, 0, 0, 0.28);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { min-height: 100%; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 10% -10%, rgba(53, 115, 142, 0.24), transparent 32rem),
+        radial-gradient(circle at 100% 0%, rgba(135, 70, 55, 0.14), transparent 26rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0.01em;
+    }
+
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+
+    .app-shell {
+      width: min(1540px, 100%);
+      margin: 0 auto;
+      min-height: 100vh;
+      padding: 18px 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      min-height: 64px;
+    }
+
+    .brand-lockup { display: flex; align-items: center; gap: 13px; }
+    .brand-mark {
+      width: 39px;
+      height: 39px;
+      border: 1px solid rgba(103, 232, 249, 0.55);
+      background: linear-gradient(145deg, rgba(103, 232, 249, 0.2), rgba(103, 232, 249, 0.03));
+      border-radius: 11px;
+      display: grid;
+      place-items: center;
+      color: var(--cyan);
+      font-weight: 800;
+      font-size: 12px;
+      letter-spacing: -0.08em;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04), 0 0 26px rgba(103, 232, 249, 0.08);
+    }
+
+    .eyebrow, .section-kicker, .canvas-tag, .metric-label, .status-chip, .event-time {
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .eyebrow { color: var(--cyan); margin-bottom: 4px; }
+    .brand-name { margin: 0; font-size: clamp(17px, 2vw, 22px); letter-spacing: -0.03em; line-height: 1.05; }
+    .brand-name span { color: var(--muted); font-weight: 500; }
+
+    .top-meta { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 12px; }
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 11px;
+      color: var(--soft);
+      background: rgba(255,255,255,0.025);
+    }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 12px var(--cyan); }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 338px;
+      align-items: start;
+      gap: 16px;
+      flex: 1;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(145deg, rgba(20, 39, 52, 0.93), rgba(9, 19, 28, 0.97));
+      box-shadow: var(--shadow);
+    }
+
+    .stage-card { overflow: hidden; min-width: 0; }
+    .stage-header {
+      padding: 15px 17px 13px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .stage-title { display: flex; align-items: baseline; gap: 11px; }
+    .stage-title h2 { margin: 0; font-size: 14px; font-weight: 650; letter-spacing: -0.01em; }
+    .stage-title .section-kicker { color: var(--muted); }
+    .stage-readout { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+
+    .canvas-frame {
+      position: relative;
+      min-height: 540px;
+      height: min(67vh, 670px);
+      background: #09131c;
+    }
+    canvas { display: block; width: 100%; height: 100%; }
+    .canvas-tag {
+      position: absolute;
+      top: 15px;
+      left: 16px;
+      color: rgba(215, 240, 248, 0.65);
+      padding: 7px 9px;
+      border: 1px solid rgba(201, 235, 245, 0.17);
+      border-radius: 7px;
+      background: rgba(5, 14, 21, 0.42);
+      backdrop-filter: blur(8px);
+      pointer-events: none;
+    }
+    .canvas-corner {
+      position: absolute;
+      right: 16px;
+      top: 15px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: rgba(215, 240, 248, 0.55);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.11em;
+      pointer-events: none;
+    }
+    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); }
+
+    .legend-bar {
+      border-top: 1px solid var(--line);
+      padding: 11px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .legend-items { display: flex; flex-wrap: wrap; gap: 13px; }
+    .legend-item { display: inline-flex; align-items: center; gap: 6px; }
+    .legend-swatch { width: 8px; height: 8px; border-radius: 2px; }
+    .legend-swatch.car { background: #f05a56; }
+    .legend-swatch.brick { background: #d28b63; }
+    .legend-swatch.track { background: #657986; }
+    .legend-scale { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+    .inspector { display: flex; flex-direction: column; gap: 12px; }
+    .panel-section { padding: 16px; }
+    .panel-section + .panel-section { border-top: 1px solid var(--line); }
+    .section-kicker { color: var(--cyan); margin-bottom: 9px; }
+    .panel-heading { margin: 0 0 13px; font-size: 13px; font-weight: 680; letter-spacing: -0.01em; }
+
+    .action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    .btn {
+      min-height: 40px;
+      border-radius: 9px;
+      border: 1px solid var(--line-strong);
+      color: var(--text);
+      background: rgba(255,255,255,0.045);
+      transition: transform .16s ease, border-color .16s ease, background .16s ease;
+    }
+    .btn:hover { transform: translateY(-1px); border-color: rgba(103, 232, 249, 0.55); background: rgba(103, 232, 249, 0.08); }
+    .btn:active { transform: translateY(0); }
+    .btn-primary { border-color: rgba(103, 232, 249, 0.63); background: linear-gradient(135deg, rgba(103,232,249,0.23), rgba(31,112,130,0.2)); color: #d9fbff; font-weight: 700; }
+    .btn-primary:hover { background: linear-gradient(135deg, rgba(103,232,249,0.32), rgba(31,112,130,0.28)); }
+    .btn:focus-visible, input:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+    .control-list { display: grid; gap: 14px; }
+    .control-row { display: grid; gap: 7px; }
+    .control-label { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--soft); }
+    .control-value { color: var(--cyan); font-variant-numeric: tabular-nums; font-weight: 700; }
+    .range-line { display: grid; grid-template-columns: minmax(0, 1fr) 45px; align-items: center; gap: 10px; }
+    input[type="range"] { width: 100%; accent-color: var(--cyan); height: 4px; cursor: pointer; }
+    .range-end { border: 1px solid var(--line); border-radius: 5px; padding: 4px 5px; text-align: center; color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+    .settings-note { margin: 14px 0 0; color: var(--muted); font-size: 10px; line-height: 1.55; }
+
+    .telemetry-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .metric { min-height: 67px; border: 1px solid var(--line); border-radius: 9px; padding: 10px; background: rgba(0,0,0,0.12); }
+    .metric-label { color: var(--muted); font-size: 9px; margin-bottom: 8px; }
+    .metric-value { font-size: 18px; letter-spacing: -0.035em; font-weight: 720; font-variant-numeric: tabular-nums; }
+    .metric-value small { font-size: 10px; color: var(--muted); font-weight: 550; letter-spacing: 0; }
+    .state-line { grid-column: 1 / -1; min-height: 43px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .state-value { display: inline-flex; align-items: center; gap: 7px; font-weight: 700; font-size: 12px; }
+    .state-indicator { width: 7px; height: 7px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+    .state-detail { color: var(--muted); font-size: 10px; }
+
+    .fixed-specs { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .spec { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 8px 9px; border: 1px solid var(--line); border-radius: 7px; font-size: 10px; }
+    .spec span:first-child { color: var(--muted); }
+    .spec strong { color: var(--soft); font-weight: 650; font-variant-numeric: tabular-nums; }
+
+    .event-list { display: grid; gap: 9px; }
+    .event { display: grid; grid-template-columns: 8px 1fr auto; align-items: center; gap: 8px; color: var(--soft); font-size: 11px; }
+    .event-mark { width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); }
+    .event-mark.impact { background: var(--orange); }
+    .event-mark.settled { background: var(--green); }
+    .event-time { color: var(--muted); font-size: 9px; font-variant-numeric: tabular-nums; }
+    .empty-events { color: var(--muted); font-size: 11px; }
+
+    .footer-note { color: rgba(135,160,173,0.72); text-align: right; font-size: 10px; }
+
+    @media (max-width: 1050px) {
+      .workspace { grid-template-columns: minmax(0, 1fr) 310px; }
+      .canvas-frame { min-height: 480px; }
+    }
+    @media (max-width: 820px) {
+      .app-shell { padding: 14px 12px 18px; }
+      .topbar { align-items: flex-start; }
+      .top-meta { display: none; }
+      .workspace { grid-template-columns: 1fr; }
+      .inspector { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+      .inspector > .card { min-width: 0; }
+      .inspector > .card:first-child { grid-column: 1 / -1; }
+      .canvas-frame { height: 60vh; min-height: 420px; }
+    }
+    @media (max-width: 560px) {
+      .brand-name { font-size: 17px; }
+      .brand-name span { display: block; margin-top: 3px; font-size: 12px; }
+      .inspector { display: flex; }
+      .canvas-frame { height: 58vh; min-height: 390px; }
+      .legend-bar { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand-lockup">
+        <div class="brand-mark" aria-hidden="true">G5</div>
+        <div>
+          <div class="eyebrow">PHYSICS LAB / BENCH 05</div>
+          <h1 class="brand-name">GPT 5.6 Luna <span>· Brick Wall Crash</span></h1>
+        </div>
+      </div>
+      <div class="top-meta">
+        <span class="status-chip"><span class="status-dot"></span> deterministic run</span>
+        <span>SI units · fixed timestep</span>
+      </div>
+    </header>
+
+    <section class="workspace" aria-label="Brick wall crash experiment">
+      <article class="card stage-card">
+        <div class="stage-header">
+          <div class="stage-title">
+            <span class="section-kicker">01 / Live view</span>
+            <h2>Impact range</h2>
+          </div>
+          <div class="stage-readout" id="stageReadout">READY · 80 px/m base scale</div>
+        </div>
+        <div class="canvas-frame">
+          <canvas id="simulationCanvas" aria-label="Real-time car and brick wall physics simulation"></canvas>
+          <div class="canvas-tag">SIDE ELEVATION / TRACK A</div>
+          <div class="canvas-corner"><span class="live-dot"></span><span id="canvasStatus">armed</span></div>
+        </div>
+        <div class="legend-bar">
+          <div class="legend-items" aria-label="Scene legend">
+            <span class="legend-item"><i class="legend-swatch car"></i> vehicle body</span>
+            <span class="legend-item"><i class="legend-swatch brick"></i> dynamic bricks</span>
+            <span class="legend-item"><i class="legend-swatch track"></i> friction surface</span>
+          </div>
+          <div class="legend-scale" id="scaleReadout">scale 80 px/m</div>
+        </div>
+      </article>
+
+      <aside class="inspector" aria-label="Experiment controls and telemetry">
+        <section class="card panel-section">
+          <div class="section-kicker">Control deck</div>
+          <h2 class="panel-heading">Run the experiment</h2>
+          <div class="action-row">
+            <button class="btn btn-primary" id="testButton" type="button">Test <span aria-hidden="true">↗</span></button>
+            <button class="btn" id="resetButton" type="button">Reset</button>
+          </div>
+        </section>
+
+        <section class="card panel-section">
+          <div class="section-kicker">02 / Parameters</div>
+          <h2 class="panel-heading">Adjust the wall &amp; launch</h2>
+          <div class="control-list">
+            <label class="control-row" for="speedInput">
+              <span class="control-label"><span>Car speed</span><strong class="control-value" id="speedValue">22.0 m/s</strong></span>
+              <span class="range-line"><input id="speedInput" type="range" min="5" max="45" step="0.5" value="22" /><span class="range-end">5—45</span></span>
+            </label>
+            <label class="control-row" for="columnsInput">
+              <span class="control-label"><span>Wall columns</span><strong class="control-value" id="columnsValue">12</strong></span>
+              <span class="range-line"><input id="columnsInput" type="range" min="4" max="24" step="1" value="12" /><span class="range-end">4—24</span></span>
+            </label>
+            <label class="control-row" for="rowsInput">
+              <span class="control-label"><span>Wall rows</span><strong class="control-value" id="rowsValue">8</strong></span>
+              <span class="range-line"><input id="rowsInput" type="range" min="3" max="16" step="1" value="8" /><span class="range-end">3—16</span></span>
+            </label>
+            <label class="control-row" for="layersInput">
+              <span class="control-label"><span>Depth layers</span><strong class="control-value" id="layersValue">2</strong></span>
+              <span class="range-line"><input id="layersInput" type="range" min="1" max="5" step="1" value="2" /><span class="range-end">1—5</span></span>
+            </label>
+            <label class="control-row" for="massInput">
+              <span class="control-label"><span>Brick mass</span><strong class="control-value" id="massValue">2.5 kg</strong></span>
+              <span class="range-line"><input id="massInput" type="range" min="0.5" max="12" step="0.5" value="2.5" /><span class="range-end">0.5—12</span></span>
+            </label>
+            <label class="control-row" for="zoomInput">
+              <span class="control-label"><span>Visual zoom</span><strong class="control-value" id="zoomValue">100%</strong></span>
+              <span class="range-line"><input id="zoomInput" type="range" min="60" max="140" step="5" value="100" /><span class="range-end">60—140%</span></span>
+            </label>
+          </div>
+          <p class="settings-note">Every brick is a separate rigid body. Visual zoom changes only the camera view; the physics scene stays unchanged.</p>
+        </section>
+
+        <section class="card panel-section">
+          <div class="section-kicker">03 / Telemetry</div>
+          <h2 class="panel-heading">Live measurements</h2>
+          <div class="telemetry-grid" aria-live="polite">
+            <div class="metric state-line"><span class="state-value"><i class="state-indicator" id="stateIndicator"></i><span id="stateLabel">READY</span></span><span class="state-detail" id="stateDetail">awaiting test</span></div>
+            <div class="metric"><div class="metric-label">Car speed</div><div class="metric-value"><span id="speedTelemetry">0.0</span> <small>m/s</small></div></div>
+            <div class="metric"><div class="metric-label">Elapsed</div><div class="metric-value"><span id="elapsedTelemetry">0.00</span> <small>s</small></div></div>
+            <div class="metric"><div class="metric-label">Moving bricks</div><div class="metric-value"><span id="movingTelemetry">0</span> <small>/ <span id="totalTelemetry">192</span></small></div></div>
+            <div class="metric"><div class="metric-label">Standing</div><div class="metric-value"><span id="standingTelemetry">192</span> <small>bricks</small></div></div>
+          </div>
+        </section>
+
+        <section class="card panel-section">
+          <div class="section-kicker">Reference constants</div>
+          <h2 class="panel-heading">Baseline material</h2>
+          <div class="fixed-specs">
+            <div class="spec"><span>Brick size</span><strong>0.50 × 0.24 m</strong></div>
+            <div class="spec"><span>Gravity</span><strong>9.81 m/s²</strong></div>
+            <div class="spec"><span>Brick μ</span><strong>0.72</strong></div>
+            <div class="spec"><span>Restitution</span><strong>0.18</strong></div>
+            <div class="spec"><span>Car mass</span><strong>1,250 kg</strong></div>
+            <div class="spec"><span>Ground μ</span><strong>0.85</strong></div>
+          </div>
+        </section>
+
+        <section class="card panel-section">
+          <div class="section-kicker">Run history</div>
+          <h2 class="panel-heading">Event trace</h2>
+          <div class="event-list" id="eventList"><div class="empty-events">No test events yet.</div></div>
+        </section>
+      </aside>
+    </section>
+
+    <footer class="footer-note">GPT 5.6 Luna · deterministic rigid-body sandbox · no external libraries</footer>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const MODEL_NAME = 'GPT 5.6 Luna';
+      const DEFAULTS = Object.freeze({
+        speed: 22,
+        columns: 12,
+        rows: 8,
+        layers: 2,
+        brickMass: 2.5,
+        brickWidth: 0.50,
+        brickHeight: 0.24,
+        gravity: 9.81,
+        brickFriction: 0.72,
+        brickRestitution: 0.18,
+        carMass: 1250,
+        carWidth: 4.2,
+        carHeight: 1.45,
+        groundFriction: 0.85,
+        simulationScale: 80
+      });
+
+      const FIXED_DT = 1 / 240;
+      const MAX_FRAME_DT = 0.08;
+      const SOLVER_ITERATIONS = 4;
+      const EPSILON = 1e-8;
+      const canvas = document.getElementById('simulationCanvas');
+      const ctx = canvas.getContext('2d');
+      const settingsInputs = {
+        speed: document.getElementById('speedInput'),
+        columns: document.getElementById('columnsInput'),
+        rows: document.getElementById('rowsInput'),
+        layers: document.getElementById('layersInput'),
+        brickMass: document.getElementById('massInput')
+      };
+      const zoomInput = document.getElementById('zoomInput');
+      const zoomValue = document.getElementById('zoomValue');
+      const settingLabels = {
+        speed: document.getElementById('speedValue'),
+        columns: document.getElementById('columnsValue'),
+        rows: document.getElementById('rowsValue'),
+        layers: document.getElementById('layersValue'),
+        brickMass: document.getElementById('massValue')
+      };
+      const ui = {
+        testButton: document.getElementById('testButton'),
+        resetButton: document.getElementById('resetButton'),
+        stateLabel: document.getElementById('stateLabel'),
+        stateDetail: document.getElementById('stateDetail'),
+        stateIndicator: document.getElementById('stateIndicator'),
+        speedTelemetry: document.getElementById('speedTelemetry'),
+        elapsedTelemetry: document.getElementById('elapsedTelemetry'),
+        movingTelemetry: document.getElementById('movingTelemetry'),
+        totalTelemetry: document.getElementById('totalTelemetry'),
+        standingTelemetry: document.getElementById('standingTelemetry'),
+        eventList: document.getElementById('eventList'),
+        stageReadout: document.getElementById('stageReadout'),
+        canvasStatus: document.getElementById('canvasStatus'),
+        scaleReadout: document.getElementById('scaleReadout')
+      };
+
+      let zoom = Number(zoomInput.value) / 100;
+
+      let settings = readSettings();
+      let scene = null;
+      let simulation = null;
+      let events = [];
+      let view = { width: 1, height: 1, dpr: 1, scale: DEFAULTS.simulationScale, groundY: 1, worldRight: 17 };
+      let lastFrameTime = performance.now();
+      let accumulator = 0;
+
+      function readSettings() {
+        return {
+          speed: Number(settingsInputs.speed.value),
+          columns: Number(settingsInputs.columns.value),
+          rows: Number(settingsInputs.rows.value),
+          layers: Number(settingsInputs.layers.value),
+          brickMass: Number(settingsInputs.brickMass.value),
+          brickWidth: DEFAULTS.brickWidth,
+          brickHeight: DEFAULTS.brickHeight,
+          gravity: DEFAULTS.gravity,
+          brickFriction: DEFAULTS.brickFriction,
+          brickRestitution: DEFAULTS.brickRestitution,
+          carMass: DEFAULTS.carMass,
+          carWidth: DEFAULTS.carWidth,
+          carHeight: DEFAULTS.carHeight,
+          groundFriction: DEFAULTS.groundFriction,
+          simulationScale: DEFAULTS.simulationScale
+        };
+      }
+
+      function updateSettingLabels() {
+        settingLabels.speed.textContent = `${settings.speed.toFixed(1)} m/s`;
+        settingLabels.columns.textContent = String(settings.columns);
+        settingLabels.rows.textContent = String(settings.rows);
+        settingLabels.layers.textContent = String(settings.layers);
+        settingLabels.brickMass.textContent = `${settings.brickMass.toFixed(1)} kg`;
+        zoomValue.textContent = `${zoomInput.value}%`;
+      }
+
+      function vec(x = 0, y = 0) { return { x, y }; }
+      function add(a, b) { return { x: a.x + b.x, y: a.y + b.y }; }
+      function sub(a, b) { return { x: a.x - b.x, y: a.y - b.y }; }
+      function mul(a, scalar) { return { x: a.x * scalar, y: a.y * scalar }; }
+      function dot(a, b) { return a.x * b.x + a.y * b.y; }
+      function length(a) { return Math.hypot(a.x, a.y); }
+      function normalize(a) {
+        const len = length(a);
+        return len > EPSILON ? { x: a.x / len, y: a.y / len } : { x: 1, y: 0 };
+      }
+      function cross(a, b) { return a.x * b.y - a.y * b.x; }
+      function crossScalarVector(scalar, v) { return { x: -scalar * v.y, y: scalar * v.x }; }
+      function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+      function moveToward(value, target, amount) {
+        if (Math.abs(target - value) <= amount) return target;
+        return value + Math.sign(target - value) * amount;
+      }
+
+      function createBody({ kind, x, y, width, height, mass, angle = 0, row = -1, layer = -1, column = -1 }) {
+        const inertia = mass > 0 ? mass * (width * width + height * height) / 12 : 0;
+        return {
+          kind,
+          pos: vec(x, y),
+          velocity: vec(),
+          width,
+          height,
+          halfWidth: width / 2,
+          halfHeight: height / 2,
+          mass,
+          invMass: mass > 0 ? 1 / mass : 0,
+          inertia,
+          invInertia: inertia > 0 ? 1 / inertia : 0,
+          angle,
+          angularVelocity: 0,
+          friction: kind === 'car' ? DEFAULTS.groundFriction : settings.brickFriction,
+          restitution: kind === 'car' ? 0.04 : settings.brickRestitution,
+          awake: kind === 'car',
+          sleepTime: 0,
+          row,
+          layer,
+          column,
+          baseX: x,
+          baseY: y,
+          baseAngle: angle,
+          justHit: false,
+          supported: false
+        };
+      }
+
+      function buildScene() {
+        const wallFaceLeft = 8.4;
+        const brickGap = 0.014;
+        const layerGap = 0.028;
+        const wall = [];
+        const bodies = [];
+        const layerPitch = settings.brickWidth + layerGap;
+        const wallHeight = settings.rows * settings.brickHeight + (settings.rows - 1) * brickGap;
+        const baseY = settings.brickHeight / 2 + 0.012;
+
+        for (let layer = 0; layer < settings.layers; layer += 1) {
+          const layerOffset = (layer - (settings.layers - 1) / 2) * layerPitch;
+          for (let row = 0; row < settings.rows; row += 1) {
+            const stagger = row % 2 === 1 ? settings.brickWidth * 0.5 : 0;
+            for (let column = 0; column < settings.columns; column += 1) {
+              const x = wallFaceLeft + (column + 0.5) * settings.brickWidth + stagger + layerOffset;
+              const y = baseY + row * (settings.brickHeight + brickGap);
+              const brick = createBody({
+                kind: 'brick',
+                x,
+                y,
+                width: settings.brickWidth,
+                height: settings.brickHeight,
+                mass: settings.brickMass,
+                row,
+                layer,
+                column
+              });
+              brick.awake = false;
+              brick.friction = settings.brickFriction;
+              brick.restitution = settings.brickRestitution;
+              wall.push(brick);
+              bodies.push(brick);
+            }
+          }
+        }
+
+        const car = createBody({
+          kind: 'car',
+          x: 2.3,
+          y: settings.carHeight / 2 + 0.045,
+          width: settings.carWidth,
+          height: settings.carHeight,
+          mass: settings.carMass
+        });
+        car.friction = settings.groundFriction;
+        car.restitution = 0.04;
+        car.throttle = false;
+        car.braking = false;
+        bodies.push(car);
+
+        const rawLeft = wallFaceLeft - (settings.layers - 1) * layerPitch / 2 - settings.brickWidth * 0.5;
+        const rawRight = wallFaceLeft + settings.columns * settings.brickWidth + settings.brickWidth * 0.5 + (settings.layers - 1) * layerPitch / 2;
+        scene = {
+          bodies,
+          wall,
+          car,
+          wallLeft: rawLeft,
+          wallRight: rawRight,
+          wallFaceLeft,
+          wallHeight,
+          brickGap,
+          layerGap,
+          particles: [],
+          skidMarks: [],
+          impactFlash: 0,
+          shake: 0,
+          visualClock: 0
+        };
+        simulation = {
+          state: 'READY',
+          elapsed: 0,
+          impactAt: null,
+          settledAt: null,
+          running: false,
+          impactLogged: false,
+          settledLogged: false
+        };
+        accumulator = 0;
+        updateTelemetry();
+      }
+
+      function resetScene(reason = 'reset') {
+        buildScene();
+        if (reason === 'reset') addEvent('Scene reset', 'ready');
+        if (reason === 'settings') addEvent('Parameters updated', 'ready');
+        render();
+      }
+
+      function launchTest() {
+        buildScene();
+        simulation.state = 'LAUNCHING';
+        simulation.running = true;
+        scene.car.throttle = true;
+        scene.car.braking = false;
+        addEvent('Test started', 'ready');
+        render();
+      }
+
+      function addEvent(label, tone = 'ready') {
+        const timestamp = new Date();
+        const time = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+        events.unshift({ label, tone, time });
+        events = events.slice(0, 5);
+        ui.eventList.innerHTML = events.length
+          ? events.map((event) => `<div class="event"><i class="event-mark ${event.tone}"></i><span>${event.label}</span><time class="event-time">${event.time}</time></div>`).join('')
+          : '<div class="empty-events">No test events yet.</div>';
+      }
+
+      function startImpact() {
+        if (simulation.impactLogged) return;
+        simulation.impactLogged = true;
+        simulation.state = 'IMPACT';
+        simulation.impactAt = simulation.elapsed;
+        scene.car.throttle = false;
+        scene.car.braking = true;
+        scene.impactFlash = 1;
+        scene.shake = 0.22;
+        spawnImpactParticles();
+        addEvent('Wall contact detected', 'impact');
+      }
+
+      function markSettled() {
+        if (simulation.settledLogged) return;
+        simulation.settledLogged = true;
+        simulation.state = 'SETTLED';
+        simulation.settledAt = simulation.elapsed;
+        simulation.running = false;
+        scene.car.velocity.x = 0;
+        scene.car.velocity.y = 0;
+        scene.car.angularVelocity = 0;
+        addEvent('Debris settled', 'settled');
+      }
+
+      function integrateBody(body, dt) {
+        if (!body.awake) return;
+        body.velocity.y -= settings.gravity * dt;
+        body.pos.x += body.velocity.x * dt;
+        body.pos.y += body.velocity.y * dt;
+        body.angle += body.angularVelocity * dt;
+        body.angle = clamp(body.angle, -Math.PI * 1.5, Math.PI * 1.5);
+      }
+
+      function prepareCar(dt) {
+        const car = scene.car;
+        if (!car.awake) return;
+        if (simulation.state === 'LAUNCHING') {
+          // The track runs left-to-right: the car must always advance toward +X.
+          car.velocity.x = Math.max(0, Math.min(settings.speed, car.velocity.x + 55 * dt));
+        } else if (simulation.state === 'IMPACT') {
+          const emergencyDeceleration = settings.groundFriction * settings.gravity * 1.12;
+          car.velocity.x = moveToward(Math.max(0, car.velocity.x), 0, emergencyDeceleration * dt);
+        }
+        if (Math.abs(car.velocity.x) < 0.02 && simulation.state === 'IMPACT') car.velocity.x = 0;
+      }
+
+      function getAxes(body) {
+        const c = Math.cos(body.angle);
+        const s = Math.sin(body.angle);
+        return [{ x: c, y: s }, { x: -s, y: c }];
+      }
+
+      function getVertices(body) {
+        const axes = getAxes(body);
+        const ux = axes[0];
+        const uy = axes[1];
+        const hx = body.halfWidth;
+        const hy = body.halfHeight;
+        return [
+          { x: body.pos.x + ux.x * hx + uy.x * hy, y: body.pos.y + ux.y * hx + uy.y * hy },
+          { x: body.pos.x - ux.x * hx + uy.x * hy, y: body.pos.y - ux.y * hx + uy.y * hy },
+          { x: body.pos.x - ux.x * hx - uy.x * hy, y: body.pos.y - ux.y * hx - uy.y * hy },
+          { x: body.pos.x + ux.x * hx - uy.x * hy, y: body.pos.y + ux.y * hx - uy.y * hy }
+        ];
+      }
+
+      function projectBody(body, axis) {
+        const axes = getAxes(body);
+        const radius = body.halfWidth * Math.abs(dot(axis, axes[0])) + body.halfHeight * Math.abs(dot(axis, axes[1]));
+        const center = dot(body.pos, axis);
+        return { min: center - radius, max: center + radius };
+      }
+
+      function rectCollision(a, b) {
+        const axes = getAxes(a).concat(getAxes(b));
+        let smallestOverlap = Infinity;
+        let smallestAxis = null;
+        for (const axis of axes) {
+          const projectionA = projectBody(a, axis);
+          const projectionB = projectBody(b, axis);
+          const overlap = Math.min(projectionA.max, projectionB.max) - Math.max(projectionA.min, projectionB.min);
+          if (overlap <= 0) return null;
+          if (overlap < smallestOverlap) {
+            smallestOverlap = overlap;
+            smallestAxis = axis;
+          }
+        }
+        if (!smallestAxis) return null;
+        if (dot(sub(b.pos, a.pos), smallestAxis) < 0) smallestAxis = mul(smallestAxis, -1);
+        return { normal: smallestAxis, penetration: smallestOverlap };
+      }
+
+      function supportPoint(body, direction) {
+        const vertices = getVertices(body);
+        let best = vertices[0];
+        let bestProjection = dot(best, direction);
+        for (let index = 1; index < vertices.length; index += 1) {
+          const projection = dot(vertices[index], direction);
+          if (projection > bestProjection) {
+            bestProjection = projection;
+            best = vertices[index];
+          }
+        }
+        return best;
+      }
+
+      function velocityAtPoint(body, radius) {
+        return add(body.velocity, crossScalarVector(body.angularVelocity, radius));
+      }
+
+      function applyImpulse(body, impulse, radius) {
+        if (body.invMass === 0) return;
+        body.velocity.x += impulse.x * body.invMass;
+        body.velocity.y += impulse.y * body.invMass;
+        body.angularVelocity += cross(radius, impulse) * body.invInertia;
+        body.angularVelocity = clamp(body.angularVelocity, -22, 22);
+      }
+
+      function wake(body) {
+        if (!body.awake) {
+          body.awake = true;
+          body.sleepTime = 0;
+        }
+      }
+
+      function resolvePair(a, b) {
+        // Depth layers are separate 3D sheets projected onto the side view. They
+        // overlap in this 2D projection, so only bodies on the same sheet collide
+        // with one another; the car still contacts every layer and transfers force.
+        if (a.kind === 'brick' && b.kind === 'brick' && a.layer !== b.layer) return false;
+        const collision = rectCollision(a, b);
+        if (!collision) return false;
+        const normal = collision.normal;
+        const sleepingContact = (!a.awake || !b.awake) && collision.penetration < 0.022 && Math.abs(dot(sub(b.velocity, a.velocity), normal)) < 0.36;
+        if (sleepingContact) return true;
+        const supportA = supportPoint(a, normal);
+        const supportB = supportPoint(b, mul(normal, -1));
+        const contact = mul(add(supportA, supportB), 0.5);
+        const ra = sub(contact, a.pos);
+        const rb = sub(contact, b.pos);
+        const relativeVelocity = sub(velocityAtPoint(b, rb), velocityAtPoint(a, ra));
+        const normalVelocity = dot(relativeVelocity, normal);
+        const inverseMassSum = a.invMass + b.invMass;
+        const rotationalMass = Math.pow(cross(ra, normal), 2) * a.invInertia + Math.pow(cross(rb, normal), 2) * b.invInertia;
+        const denominator = inverseMassSum + rotationalMass;
+        const restitution = Math.min(a.restitution, b.restitution);
+        let impulseMagnitude = 0;
+
+        if (normalVelocity < 0 && denominator > EPSILON) {
+          impulseMagnitude = -(1 + restitution) * normalVelocity / denominator;
+          const impulse = mul(normal, impulseMagnitude);
+          applyImpulse(a, mul(impulse, -1), ra);
+          applyImpulse(b, impulse, rb);
+
+          const postRelativeVelocity = sub(velocityAtPoint(b, rb), velocityAtPoint(a, ra));
+          const tangentVelocity = sub(postRelativeVelocity, mul(normal, dot(postRelativeVelocity, normal)));
+          const tangent = length(tangentVelocity) > EPSILON ? normalize(tangentVelocity) : { x: -normal.y, y: normal.x };
+          const tangentDenominator = inverseMassSum + Math.pow(cross(ra, tangent), 2) * a.invInertia + Math.pow(cross(rb, tangent), 2) * b.invInertia;
+          if (tangentDenominator > EPSILON) {
+            let frictionImpulse = -dot(postRelativeVelocity, tangent) / tangentDenominator;
+            const friction = Math.sqrt(Math.max(0, a.friction * b.friction));
+            frictionImpulse = clamp(frictionImpulse, -impulseMagnitude * friction, impulseMagnitude * friction);
+            const frictionVector = mul(tangent, frictionImpulse);
+            applyImpulse(a, mul(frictionVector, -1), ra);
+            applyImpulse(b, frictionVector, rb);
+          }
+        }
+
+        const correctionMagnitude = Math.max(collision.penetration - 0.004, 0) * 0.72 / Math.max(inverseMassSum, EPSILON);
+        const correction = mul(normal, correctionMagnitude);
+        if (a.invMass > 0) {
+          a.pos.x -= correction.x * a.invMass;
+          a.pos.y -= correction.y * a.invMass;
+        }
+        if (b.invMass > 0) {
+          b.pos.x += correction.x * b.invMass;
+          b.pos.y += correction.y * b.invMass;
+        }
+
+        if (normal.y > 0.32) b.supported = true;
+        if (normal.y < -0.32) a.supported = true;
+        if (impulseMagnitude > 0.08 || collision.penetration > 0.025) {
+          wake(a);
+          wake(b);
+        }
+        if ((a.kind === 'car' && b.kind === 'brick') || (a.kind === 'brick' && b.kind === 'car')) startImpact();
+        return true;
+      }
+
+      function resolveGround(body) {
+        const vertices = getVertices(body);
+        let lowest = vertices[0];
+        for (const vertex of vertices) if (vertex.y < lowest.y) lowest = vertex;
+        if (lowest.y >= 0) return;
+        if (!body.awake) body.awake = true;
+
+        body.supported = true;
+        body.pos.y += -lowest.y + 0.002;
+        const contact = { x: lowest.x, y: 0 };
+        const radius = sub(contact, body.pos);
+        const pointVelocity = velocityAtPoint(body, radius);
+        const normal = { x: 0, y: 1 };
+        const normalVelocity = dot(pointVelocity, normal);
+        const tangent = { x: 1, y: 0 };
+        const denominator = body.invMass + Math.pow(cross(radius, normal), 2) * body.invInertia;
+        let normalImpulseMagnitude = 0;
+
+        if (normalVelocity < 0 && denominator > EPSILON) {
+          const restitution = body.kind === 'brick' ? settings.brickRestitution : 0.02;
+          normalImpulseMagnitude = -(1 + restitution) * normalVelocity / denominator;
+          applyImpulse(body, mul(normal, normalImpulseMagnitude), radius);
+        } else if (body.velocity.y < 0) {
+          // A fast-spinning brick can move its contact point upward while its
+          // center is still driving into the track. Remove that impossible
+          // inward center velocity so the ground cannot be tunneled through.
+          body.velocity.y = 0;
+        }
+
+        const afterVelocity = velocityAtPoint(body, radius);
+        const tangentialVelocity = dot(afterVelocity, tangent);
+        const frictionDenominator = body.invMass + Math.pow(cross(radius, tangent), 2) * body.invInertia;
+        if (frictionDenominator > EPSILON && normalImpulseMagnitude > 0.0001) {
+          const frictionLimit = normalImpulseMagnitude * Math.sqrt(Math.max(0, body.friction * settings.groundFriction));
+          const frictionImpulse = clamp(-tangentialVelocity / frictionDenominator, -frictionLimit, frictionLimit);
+          applyImpulse(body, mul(tangent, frictionImpulse), radius);
+        }
+        if (body.supported) {
+          const groundDrag = settings.groundFriction * settings.gravity * (body.kind === 'brick' ? 0.24 : 0.10);
+          body.velocity.x = moveToward(body.velocity.x, 0, groundDrag * FIXED_DT);
+          body.angularVelocity = moveToward(body.angularVelocity, 0, (body.kind === 'brick' ? 4.5 : 2.5) * FIXED_DT);
+          if (Math.abs(body.velocity.y) < 0.32) body.velocity.y = 0;
+        }
+        if (Math.abs(body.velocity.x) < 0.025 && Math.abs(body.angularVelocity) < 0.045) {
+          body.velocity.x = 0;
+          body.angularVelocity *= 0.82;
+        }
+      }
+
+      function bodyAABB(body) {
+        const axes = getAxes(body);
+        const extentX = body.halfWidth * Math.abs(axes[0].x) + body.halfHeight * Math.abs(axes[1].x);
+        const extentY = body.halfWidth * Math.abs(axes[0].y) + body.halfHeight * Math.abs(axes[1].y);
+        return { minX: body.pos.x - extentX, maxX: body.pos.x + extentX, minY: body.pos.y - extentY, maxY: body.pos.y + extentY };
+      }
+
+      function broadPhasePairs() {
+        const cellSize = 0.72;
+        const cells = new Map();
+        const addToCell = (key, index) => {
+          const list = cells.get(key);
+          if (list) list.push(index);
+          else cells.set(key, [index]);
+        };
+        scene.bodies.forEach((body, index) => {
+          const bounds = bodyAABB(body);
+          const minCellX = Math.floor(bounds.minX / cellSize);
+          const maxCellX = Math.floor(bounds.maxX / cellSize);
+          const minCellY = Math.floor(bounds.minY / cellSize);
+          const maxCellY = Math.floor(bounds.maxY / cellSize);
+          for (let cellX = minCellX; cellX <= maxCellX; cellX += 1) {
+            for (let cellY = minCellY; cellY <= maxCellY; cellY += 1) addToCell(`${cellX}:${cellY}`, index);
+          }
+        });
+
+        const pairSet = new Set();
+        const pairs = [];
+        for (const indices of cells.values()) {
+          for (let i = 0; i < indices.length; i += 1) {
+            for (let j = i + 1; j < indices.length; j += 1) {
+              const a = Math.min(indices[i], indices[j]);
+              const b = Math.max(indices[i], indices[j]);
+              const key = `${a}:${b}`;
+              if (!pairSet.has(key)) {
+                pairSet.add(key);
+                pairs.push([scene.bodies[a], scene.bodies[b]]);
+              }
+            }
+          }
+        }
+        return pairs;
+      }
+
+      function updateSleep(body, dt) {
+        if (body.kind !== 'brick' || !body.awake) return;
+        const speed = length(body.velocity);
+        const angular = Math.abs(body.angularVelocity);
+        if ((body.supported || body.pos.y < 0.6) && speed < 0.5 && angular < 0.85) body.sleepTime += dt;
+        else body.sleepTime = 0;
+        if (body.sleepTime > 0.22) {
+          body.awake = false;
+          body.velocity.x = 0;
+          body.velocity.y = 0;
+          body.angularVelocity = 0;
+        }
+      }
+
+      function stabilizeDebris(dt) {
+        if (simulation.state !== 'IMPACT' || simulation.impactAt === null) return;
+        const impactAge = simulation.elapsed - simulation.impactAt;
+        if (impactAge < 3 || length(scene.car.velocity) > 0.5) return;
+        // Once the car has stopped transmitting force, apply a deterministic
+        // resting-contact damper. This removes solver-scale jitter without
+        // moving any brick to a scripted position.
+        const linearDamping = Math.pow(0.08, dt);
+        const angularDamping = Math.pow(0.025, dt);
+        for (const brick of scene.wall) {
+          if (!brick.awake) continue;
+          brick.velocity.x *= linearDamping;
+          brick.velocity.y *= linearDamping;
+          brick.angularVelocity *= angularDamping;
+          if (impactAge > 5.2 && length(brick.velocity) < 0.45 && Math.abs(brick.angularVelocity) < 0.65) {
+            brick.velocity.x = 0;
+            brick.velocity.y = 0;
+            brick.angularVelocity = 0;
+            brick.awake = false;
+          }
+        }
+        if (impactAge > 7.0) {
+          // Long-tail stabilization: preserve the final poses but put every
+          // remaining low-energy debris body to sleep for a clean readout.
+          for (const brick of scene.wall) {
+            brick.velocity.x = 0;
+            brick.velocity.y = 0;
+            brick.angularVelocity = 0;
+            brick.awake = false;
+          }
+        }
+      }
+
+      function physicsStep(dt) {
+        if (!simulation.running) return;
+        simulation.elapsed += dt;
+        scene.visualClock += dt;
+        prepareCar(dt);
+        for (const body of scene.bodies) {
+          if (body.awake) body.supported = false;
+          integrateBody(body, dt);
+        }
+
+        for (let iteration = 0; iteration < SOLVER_ITERATIONS; iteration += 1) {
+          for (const body of scene.bodies) resolveGround(body);
+          const pairs = broadPhasePairs();
+          for (const [a, b] of pairs) resolvePair(a, b);
+        }
+        // A final contact pass prevents the last pair impulse from leaving a
+        // settled brick with a small downward velocity into the track.
+        for (const body of scene.bodies) resolveGround(body);
+        // A low-restitution wall should stop the vehicle, not make it visibly
+        // reverse away from the crash. Bricks retain the collision impulse.
+        if (scene.car.velocity.x < 0) scene.car.velocity.x = 0;
+        for (const body of scene.bodies) updateSleep(body, dt);
+
+        updateVisualEffects(dt);
+        stabilizeDebris(dt);
+        const movingBricks = getMovingBrickCount();
+        const carSpeed = length(scene.car.velocity);
+        if (simulation.state === 'IMPACT' && simulation.impactAt !== null) {
+          const quietEnough = movingBricks === 0 && carSpeed < 0.28;
+          if (simulation.elapsed - simulation.impactAt > 1.25 && quietEnough) markSettled();
+          else if (simulation.elapsed - simulation.impactAt > 8.5 && movingBricks < 2) markSettled();
+        }
+      }
+
+      function getMovingBrickCount() {
+        if (!scene) return 0;
+        return scene.wall.reduce((count, brick) => {
+          const speed = length(brick.velocity);
+          return count + (brick.awake && (speed > 0.18 || Math.abs(brick.angularVelocity) > 0.35) ? 1 : 0);
+        }, 0);
+      }
+
+      function getStandingBrickCount() {
+        if (!scene) return 0;
+        return scene.wall.reduce((count, brick) => {
+          const closeToHome = Math.abs(brick.pos.x - brick.baseX) < 0.11 && Math.abs(brick.pos.y - brick.baseY) < 0.09 && Math.abs(brick.angle) < 0.14;
+          return count + (closeToHome ? 1 : 0);
+        }, 0);
+      }
+
+      function seededUnit(index) {
+        const value = Math.sin(index * 12.9898 + 78.233) * 43758.5453;
+        return value - Math.floor(value);
+      }
+
+      function spawnImpactParticles() {
+        const car = scene.car;
+        const originX = scene.wallLeft - 0.02;
+        scene.particles = [];
+        for (let index = 0; index < 30; index += 1) {
+          const spread = seededUnit(index + 2);
+          const upward = seededUnit(index + 41);
+          scene.particles.push({
+            x: originX + spread * 0.8,
+            y: 0.16 + upward * 0.55,
+            vx: -2 + spread * 8,
+            vy: 1.2 + upward * 3.6,
+            size: 0.035 + upward * 0.075,
+            life: 0.7 + spread * 0.85,
+            maxLife: 0.7 + spread * 0.85,
+            tint: index % 3 === 0 ? 'dust' : 'brick'
+          });
+        }
+        for (let index = 0; index < 4; index += 1) {
+          scene.skidMarks.push({ x: car.pos.x - 1.2 - index * 0.5, y: 0.009, alpha: 0.26 });
+        }
+      }
+
+      function updateVisualEffects(dt) {
+        scene.impactFlash = Math.max(0, scene.impactFlash - dt * 3.4);
+        scene.shake = Math.max(0, scene.shake - dt * 0.92);
+        for (const particle of scene.particles) {
+          particle.life -= dt;
+          particle.vy -= settings.gravity * 0.42 * dt;
+          particle.x += particle.vx * dt;
+          particle.y += particle.vy * dt;
+        }
+        scene.particles = scene.particles.filter((particle) => particle.life > 0 && particle.y > -0.2);
+        if (simulation.state === 'IMPACT' && Math.abs(scene.car.velocity.x) > 4 && scene.skidMarks.length < 24) {
+          const last = scene.skidMarks[scene.skidMarks.length - 1];
+          if (!last || Math.abs(last.x - scene.car.pos.x) > 0.22) scene.skidMarks.push({ x: scene.car.pos.x - 1.35, y: 0.009, alpha: 0.20 });
+        }
+      }
+
+      function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        view.width = Math.max(1, rect.width);
+        view.height = Math.max(1, rect.height);
+        view.dpr = dpr;
+        canvas.width = Math.round(view.width * dpr);
+        canvas.height = Math.round(view.height * dpr);
+        render();
+      }
+
+      function updateView() {
+        const dynamicRight = Math.max(scene.wallRight + 1.55, scene.car.pos.x + 1.7, 16.4);
+        view.worldRight = dynamicRight;
+        const fittedScale = Math.min(settings.simulationScale, view.width / dynamicRight);
+        view.scale = Math.max(22, fittedScale * zoom);
+        view.groundY = view.height - (view.height < 480 ? 67 : 83);
+      }
+
+      function worldToScreen(point) {
+        return { x: point.x * view.scale, y: view.groundY - point.y * view.scale };
+      }
+
+      function drawRoundedRect(context, x, y, width, height, radius) {
+        const r = Math.min(radius, Math.abs(width) / 2, Math.abs(height) / 2);
+        context.beginPath();
+        context.moveTo(x + r, y);
+        context.arcTo(x + width, y, x + width, y + height, r);
+        context.arcTo(x + width, y + height, x, y + height, r);
+        context.arcTo(x, y + height, x, y, r);
+        context.arcTo(x, y, x + width, y, r);
+        context.closePath();
+      }
+
+      function drawBackground() {
+        const width = view.width;
+        const height = view.height;
+        const sky = ctx.createLinearGradient(0, 0, 0, view.groundY);
+        sky.addColorStop(0, '#0c202d');
+        sky.addColorStop(0.57, '#0a1824');
+        sky.addColorStop(1, '#0b151d');
+        ctx.fillStyle = sky;
+        ctx.fillRect(0, 0, width, height);
+
+        const glow = ctx.createRadialGradient(width * 0.44, view.groundY * 0.25, 0, width * 0.44, view.groundY * 0.25, width * 0.55);
+        glow.addColorStop(0, 'rgba(112, 198, 215, 0.09)');
+        glow.addColorStop(1, 'rgba(112, 198, 215, 0)');
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, width, view.groundY);
+
+        ctx.save();
+        ctx.globalAlpha = 0.26;
+        ctx.fillStyle = '#8db6c1';
+        for (let index = 0; index < 42; index += 1) {
+          const x = (seededUnit(index + 140) * width);
+          const y = 24 + seededUnit(index + 190) * Math.max(30, view.groundY - 170);
+          const radius = seededUnit(index + 230) * 1.35 + 0.25;
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+        ctx.fillRect(0, view.groundY - 45, width, 45);
+        ctx.fillStyle = '#162d39';
+        ctx.fillRect(0, view.groundY, width, height - view.groundY);
+        ctx.fillStyle = '#1d3b47';
+        ctx.fillRect(0, view.groundY, width, 3);
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(161, 203, 214, 0.10)';
+        ctx.lineWidth = 1;
+        for (let meter = 0; meter <= view.worldRight + 0.5; meter += 1) {
+          const x = meter * view.scale;
+          ctx.beginPath();
+          ctx.moveTo(x, view.groundY + 4);
+          ctx.lineTo(x, height);
+          ctx.stroke();
+          if (meter % 2 === 0) {
+            ctx.fillStyle = 'rgba(184, 216, 225, 0.42)';
+            ctx.font = '9px ui-monospace, SFMono-Regular, Menlo, monospace';
+            ctx.fillText(`${meter} m`, x + 4, view.groundY + 21);
+          }
+        }
+        ctx.restore();
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(208, 231, 236, 0.16)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 7]);
+        const horizon = view.groundY - 2.1 * view.scale;
+        ctx.beginPath();
+        ctx.moveTo(0, horizon);
+        ctx.lineTo(width, horizon);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(190, 220, 226, 0.42)';
+        ctx.font = '9px ui-monospace, SFMono-Regular, Menlo, monospace';
+        ctx.fillText('2 m reference', 12, horizon - 6);
+        ctx.restore();
+      }
+
+      function drawGroundDetails() {
+        ctx.save();
+        const startX = Math.max(0, scene.car.pos.x - 4) * view.scale;
+        const endX = Math.min(view.width, view.worldRight * view.scale);
+        ctx.strokeStyle = 'rgba(177, 213, 219, 0.14)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([12, 12]);
+        ctx.beginPath();
+        ctx.moveTo(startX, view.groundY + 35);
+        ctx.lineTo(endX, view.groundY + 35);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        for (const mark of scene.skidMarks) {
+          const x = mark.x * view.scale;
+          ctx.strokeStyle = `rgba(10, 16, 20, ${mark.alpha})`;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(x, view.groundY - 1);
+          ctx.lineTo(x + 0.38 * view.scale, view.groundY - 1);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawWallFoundation() {
+        const left = scene.wallLeft * view.scale;
+        const right = scene.wallRight * view.scale;
+        const foundationY = view.groundY - 0.035 * view.scale;
+        ctx.save();
+        ctx.fillStyle = '#536875';
+        ctx.strokeStyle = 'rgba(207, 231, 234, 0.3)';
+        ctx.lineWidth = 1;
+        drawRoundedRect(ctx, left - 8, foundationY - 9, right - left + 16, 9, 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(193, 222, 227, 0.68)';
+        ctx.font = '9px ui-monospace, SFMono-Regular, Menlo, monospace';
+        ctx.fillText(`${settings.columns} × ${settings.rows} × ${settings.layers}`, left + 5, foundationY - 16);
+        ctx.fillStyle = 'rgba(176, 211, 218, 0.48)';
+        ctx.fillText('freestanding wall', left + 5, foundationY + 23);
+        ctx.restore();
+      }
+
+      function drawBrick(brick) {
+        const screen = worldToScreen(brick.pos);
+        ctx.save();
+        ctx.translate(screen.x, screen.y);
+        ctx.rotate(-brick.angle);
+        const width = brick.width * view.scale;
+        const height = brick.height * view.scale;
+        const depthFactor = brick.layer / Math.max(1, settings.layers - 1);
+        const rowFactor = brick.row / Math.max(1, settings.rows - 1);
+        const alpha = 0.76 + (1 - depthFactor) * 0.18;
+        const hue = 18 + rowFactor * 9;
+        ctx.fillStyle = `hsla(${hue}, 54%, ${45 + (1 - depthFactor) * 10}%, ${alpha})`;
+        ctx.strokeStyle = 'rgba(255, 221, 192, 0.34)';
+        ctx.lineWidth = Math.max(0.7, view.scale * 0.012);
+        drawRoundedRect(ctx, -width / 2, -height / 2, width, height, Math.min(3, height * 0.16));
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = `rgba(255, 224, 190, ${0.10 + (1 - depthFactor) * 0.07})`;
+        ctx.fillRect(-width * 0.38, -height * 0.28, width * 0.76, Math.max(1, height * 0.09));
+        ctx.restore();
+      }
+
+      function drawCar(car) {
+        const screen = worldToScreen(car.pos);
+        ctx.save();
+        ctx.translate(screen.x, screen.y);
+        ctx.rotate(-car.angle);
+        // The car's nose is on the right, matching its positive-X motion.
+        ctx.scale(-1, 1);
+        const scale = view.scale;
+        const bodyW = settings.carWidth * scale;
+        const bodyH = settings.carHeight * scale;
+        const wheelRadius = 0.30 * scale;
+        // World Y points upward, while canvas Y points downward: wheels sit
+        // below the body center in the canvas coordinate system.
+        const wheelY = 0.43 * scale;
+        const wheelXs = [-1.36 * scale, 1.36 * scale];
+
+        ctx.save();
+        ctx.globalAlpha = 0.24;
+        ctx.fillStyle = '#02070a';
+        ctx.beginPath();
+        ctx.ellipse(0, -0.02 * scale, bodyW * 0.54, scale * 0.16, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        for (const wheelX of wheelXs) {
+          ctx.fillStyle = '#070b0f';
+          ctx.strokeStyle = 'rgba(209, 232, 236, 0.35)';
+          ctx.lineWidth = Math.max(1, scale * 0.025);
+          ctx.beginPath();
+          ctx.arc(wheelX, wheelY, wheelRadius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = '#657984';
+          ctx.beginPath();
+          ctx.arc(wheelX, wheelY, wheelRadius * 0.43, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#13222b';
+          ctx.beginPath();
+          ctx.arc(wheelX, wheelY, wheelRadius * 0.17, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        const bodyGradient = ctx.createLinearGradient(-bodyW * 0.5, -bodyH * 0.5, bodyW * 0.5, bodyH * 0.5);
+        bodyGradient.addColorStop(0, '#ff786b');
+        bodyGradient.addColorStop(0.5, '#d9464f');
+        bodyGradient.addColorStop(1, '#8e2738');
+        ctx.fillStyle = bodyGradient;
+        ctx.strokeStyle = '#ff9c87';
+        ctx.lineWidth = Math.max(1, scale * 0.024);
+        ctx.beginPath();
+        ctx.moveTo(-bodyW * 0.50, bodyH * 0.31);
+        ctx.lineTo(-bodyW * 0.48, -bodyH * 0.05);
+        ctx.quadraticCurveTo(-bodyW * 0.40, -bodyH * 0.18, -bodyW * 0.26, -bodyH * 0.22);
+        ctx.lineTo(-bodyW * 0.12, -bodyH * 0.48);
+        ctx.quadraticCurveTo(-bodyW * 0.06, -bodyH * 0.55, bodyW * 0.12, -bodyH * 0.54);
+        ctx.lineTo(bodyW * 0.34, -bodyH * 0.45);
+        ctx.quadraticCurveTo(bodyW * 0.43, -bodyH * 0.38, bodyW * 0.48, -bodyH * 0.12);
+        ctx.lineTo(bodyW * 0.50, bodyH * 0.31);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(123, 222, 232, 0.72)';
+        ctx.strokeStyle = 'rgba(206, 252, 255, 0.46)';
+        ctx.lineWidth = Math.max(1, scale * 0.014);
+        ctx.beginPath();
+        ctx.moveTo(-bodyW * 0.10, -bodyH * 0.45);
+        ctx.lineTo(bodyW * 0.10, -bodyH * 0.44);
+        ctx.lineTo(bodyW * 0.31, -bodyH * 0.28);
+        ctx.lineTo(bodyW * 0.16, -bodyH * 0.08);
+        ctx.lineTo(-bodyW * 0.20, -bodyH * 0.08);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255, 215, 145, 0.9)';
+        ctx.beginPath();
+        ctx.roundRect(bodyW * 0.40, -bodyH * 0.04, bodyW * 0.07, bodyH * 0.11, 2);
+        ctx.fill();
+        ctx.fillStyle = '#ffcb7b';
+        ctx.beginPath();
+        ctx.roundRect(-bodyW * 0.48, -bodyH * 0.03, bodyW * 0.055, bodyH * 0.10, 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(42, 11, 19, 0.65)';
+        ctx.fillRect(-bodyW * 0.38, bodyH * 0.19, bodyW * 0.76, Math.max(2, bodyH * 0.065));
+        ctx.restore();
+      }
+
+      function drawParticles() {
+        ctx.save();
+        for (const particle of scene.particles) {
+          const point = worldToScreen({ x: particle.x, y: particle.y });
+          const opacity = clamp(particle.life / particle.maxLife, 0, 1) * 0.8;
+          ctx.fillStyle = particle.tint === 'brick' ? `rgba(225, 157, 105, ${opacity})` : `rgba(188, 172, 145, ${opacity * 0.7})`;
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, particle.size * view.scale, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      function drawAnnotations() {
+        const wallX = scene.wallLeft * view.scale;
+        const carX = scene.car.pos.x * view.scale;
+        ctx.save();
+        ctx.font = '10px ui-monospace, SFMono-Regular, Menlo, monospace';
+        ctx.fillStyle = 'rgba(205, 232, 236, 0.56)';
+        ctx.fillText('VEHICLE', Math.max(12, carX - 32), view.groundY - 2.0 * view.scale - 13);
+        ctx.fillText('IMPACT ZONE', wallX - 6, view.groundY - scene.wallHeight * view.scale - 25);
+        ctx.strokeStyle = 'rgba(103, 232, 249, 0.42)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(wallX, view.groundY - scene.wallHeight * view.scale - 17);
+        ctx.lineTo(wallX, view.groundY - 9);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        if (simulation.state === 'LAUNCHING') {
+          ctx.fillStyle = 'rgba(103, 232, 249, 0.8)';
+          ctx.fillText('ACCELERATING →', Math.max(12, carX - 26), view.groundY - 2.55 * view.scale);
+        }
+        if (simulation.state === 'IMPACT') {
+          ctx.fillStyle = `rgba(255, 184, 107, ${0.55 + scene.impactFlash * 0.45})`;
+          ctx.fillText('FORCE TRANSFER', wallX - 20, view.groundY - scene.wallHeight * view.scale - 40);
+        }
+        ctx.restore();
+      }
+
+      function render() {
+        if (!scene || !ctx) return;
+        updateView();
+        ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+        ctx.clearRect(0, 0, view.width, view.height);
+        ctx.save();
+        const shakePixels = scene.shake * view.scale * 0.045;
+        const shakeX = Math.sin(scene.visualClock * 90) * shakePixels;
+        const shakeY = Math.cos(scene.visualClock * 75) * shakePixels * 0.55;
+        ctx.translate(shakeX, shakeY);
+        drawBackground();
+        drawGroundDetails();
+        drawWallFoundation();
+        const sortedBricks = scene.wall.slice().sort((a, b) => a.layer - b.layer);
+        for (const brick of sortedBricks) drawBrick(brick);
+        drawParticles();
+        drawCar(scene.car);
+        drawAnnotations();
+        ctx.restore();
+
+        if (scene.impactFlash > 0) {
+          ctx.fillStyle = `rgba(255, 192, 126, ${scene.impactFlash * 0.055})`;
+          ctx.fillRect(0, 0, view.width, view.height);
+        }
+        updateTelemetry();
+      }
+
+      function updateTelemetry() {
+        if (!scene || !simulation) return;
+        const speed = length(scene.car.velocity);
+        const moving = getMovingBrickCount();
+        const standing = getStandingBrickCount();
+        const state = simulation.state;
+        ui.stateLabel.textContent = state;
+        ui.stateDetail.textContent = state === 'READY' ? 'awaiting test' : state === 'LAUNCHING' ? 'vehicle in run-up' : state === 'IMPACT' ? 'momentum transfer active' : 'stable rest state';
+        ui.stateIndicator.style.background = state === 'IMPACT' ? 'var(--orange)' : state === 'SETTLED' ? 'var(--green)' : 'var(--cyan)';
+        ui.stateIndicator.style.boxShadow = `0 0 10px ${state === 'IMPACT' ? 'var(--orange)' : state === 'SETTLED' ? 'var(--green)' : 'var(--cyan)'}`;
+        ui.speedTelemetry.textContent = speed.toFixed(1);
+        ui.elapsedTelemetry.textContent = simulation.elapsed.toFixed(2);
+        ui.movingTelemetry.textContent = String(moving);
+        ui.totalTelemetry.textContent = String(scene.wall.length);
+        ui.standingTelemetry.textContent = String(standing);
+        ui.stageReadout.textContent = `${state} · ${settings.simulationScale} px/m base scale`;
+        ui.canvasStatus.textContent = state === 'READY' ? 'armed' : state.toLowerCase();
+        ui.scaleReadout.textContent = `scale ${settings.simulationScale} px/m · view ${Math.round(view.scale)} px/m`;
+      }
+
+      function animationFrame(now) {
+        const frameDt = Math.min(MAX_FRAME_DT, (now - lastFrameTime) / 1000);
+        lastFrameTime = now;
+        accumulator += frameDt;
+        let steps = 0;
+        while (accumulator >= FIXED_DT && steps < 28) {
+          physicsStep(FIXED_DT);
+          accumulator -= FIXED_DT;
+          steps += 1;
+        }
+        render();
+        requestAnimationFrame(animationFrame);
+      }
+
+      function handleSettingInput() {
+        settings = readSettings();
+        updateSettingLabels();
+        resetScene('settings');
+      }
+
+      function handleZoomInput() {
+        zoom = Number(zoomInput.value) / 100;
+        zoomValue.textContent = `${zoomInput.value}%`;
+        render();
+      }
+
+      Object.values(settingsInputs).forEach((input) => input.addEventListener('input', handleSettingInput));
+      zoomInput.addEventListener('input', handleZoomInput);
+      ui.testButton.addEventListener('click', launchTest);
+      ui.resetButton.addEventListener('click', () => resetScene('reset'));
+      window.addEventListener('resize', resizeCanvas);
+
+      updateSettingLabels();
+      buildScene();
+      addEvent('Baseline scene ready', 'ready');
+      resizeCanvas();
+      requestAnimationFrame(animationFrame);
+    })();
+  </script>
+</body>
+</html>
