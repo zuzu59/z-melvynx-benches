@@ -131,7 +131,6 @@ function makeState(){
     camX: 0, camY: 0, shake: 0,
     dust: [],
     skids: [],
-    rubble: [],
     // derived
     gy: 0,          // ground y for front layer
   };
@@ -156,6 +155,7 @@ function createRect(x, y, w, h, mass, opts){
     top: opts.top || opts.color || "#a56a45",
     isCar: !!opts.isCar,
     awake: true,
+    launched: false,   // set once a brick is knocked off the wall (so it flies instead of vanishing)
     // visual extras
     tilt: 0,
   };
@@ -180,7 +180,6 @@ function buildWorld(st){
   st.grounds.length = 0;
   st.dust.length = 0;
   st.skids.length = 0;
-  st.rubble.length = 0;
   const P = st.P;
   const s = P.scale;
 
@@ -412,32 +411,31 @@ function step(st, dt){
       if(car.vx < target) car.vx = Math.min(target, car.vx + accPx*dt);
       // engine cruise: maintains target speed until impact
     } else {
-      // Crush resistance + progressive demolition. While the car's nose is inside
-      // the wall band it must demolish the wall to advance, so it feels a strong,
-      // roughly constant retarding acceleration that grows with brick mass — a real
-      // car cannot blast through a 12-wide masonry wall at full speed.
+      // Crush resistance + progressive demolition. The car's nose sweeps each wall
+      // column in turn: the bricks it strikes are knocked off the wall — they fly,
+      // tumble and fall back under gravity — so the wall crumbles front-to-back
+      // instead of the car just vanishing through a tunnel. A roughly constant
+      // retarding acceleration (growing with brick mass) keeps the car from blasting
+      // through a full 12-wide masonry wall at speed.
       const nose = car.x + car.w/2;
-      const tail = car.x - car.w/2;
       const inBand = nose > st.wallFrontX && nose < st.wallBackX;
-      // Shatter the bricks the car overlaps: debris + shake clear a tunnel so the
-      // car bulldozes front-to-back progressively instead of wedging.
+      const half = (car.h + P.brickH*P.scale) * 0.55;    // vertical reach of the car
       for(const b of bodies){
-        if(b.isCar || b.isDead) continue;
-        if(b.x > tail && b.x < nose + 8 && Math.abs(b.y - car.y) < car.h + P.brickH*P.scale){
-          b.isDead = true;
-          for(let k=0;k<3;k++){
+        if(b.isCar || b.launched) continue;
+        // launch a brick once the car's nose reaches its front face and it is in the car's height band
+        if(nose >= b.x - b.hw && Math.abs(b.y - car.y) < half){
+          b.launched = true;
+          const sc = (Math.random()-0.5);                  // sideways scatter (-1..1)
+          const sc2 = (Math.random()<0.5? -1 : 1);         // forward/back tumble
+          const spd = 0.7 + Math.random()*0.8;             // upward kick strength
+          b.vx = sc*480 + sc2*180 + car.vx*0.1;             // strong left/right + forward/back scatter -> spread across the ground (pôle mele)
+          b.vy = -240 - spd*300;                            // modest upward arc so bricks land spread, not piled
+          b.va = sc*22 + sc2*16;                            // tumble spin
+          for(let k=0;k<4;k++){
             const ang = Math.random()*Math.PI*2;
-            const spd = 60 + Math.random()*200;
-            S.dust.push({ x:b.x, y:b.y, vx:Math.cos(ang)*spd+120, vy:-Math.abs(Math.sin(ang))*spd*0.5-40,
-              life:0.4+Math.random()*0.4, max:0.8, r:1.5+Math.random()*2.5, dust:false });
-          }
-          // settling rubble chunks that pile up where the wall stood
-          for(let j=0;j<2;j++){
-            S.rubble.push({
-              x: b.x + (Math.random()-0.5)*P.brickW*P.scale, y: b.y,
-              vx: 40 + Math.random()*140, vy: -Math.random()*90 - 10,
-              r: 3 + Math.random()*4, a: Math.random()*Math.PI, settled: false
-            });
+            const spd = 90 + Math.random()*220;
+            S.dust.push({ x:b.x, y:b.y, vx:Math.cos(ang)*spd + car.vx*0.35, vy:-Math.abs(Math.sin(ang))*spd*0.6-30,
+              life:0.4+Math.random()*0.4, max:0.8, r:1.5+Math.random()*3, dust: Math.random()<0.3 });
           }
           S.shake = Math.min(S.shake+1.2, 14);
         }
@@ -456,6 +454,7 @@ function step(st, dt){
     car.vy *= 0.9;
   }
 
+  const gy = st.gy;
   // integrate
   for(const b of bodies){
     if(b.static) continue;
@@ -464,6 +463,15 @@ function step(st, dt){
     b.y += b.vy*dt;
     b.a += b.va*dt;
     b.va *= 0.999;
+    // launched bricks are projectiles — no solver; land on the ground manually
+    if(b.launched){
+      if(b.y + b.h*0.5 > gy){
+        b.y = gy - b.h*0.5;
+        if(b.vy > 0){ b.vy = 0; }
+        b.vx *= 0.92;   // ground friction while settling
+        b.va *= 0.9;
+      }
+    }
     // sleeping
     const sp = Math.abs(b.vx)+Math.abs(b.vy)+Math.abs(b.va);
     b.awake = sp > 3;
@@ -474,6 +482,8 @@ function step(st, dt){
     for(const [i,j] of pairs){
       const a=bodies[i], b=bodies[j];
       if(a.static && b.static) continue;
+      if(a.launched || b.launched) continue;  // projectiles: no solver (stable)
+      if(a.static || b.static) continue;
       const c = collide(a,b);
       if(c){
         solveContacts(a,b,c);
@@ -490,6 +500,7 @@ function step(st, dt){
   for(const [i,j] of pairs){
     const a=bodies[i], b=bodies[j];
     if(a.static||b.static) continue;
+    if(a.launched || b.launched) continue;  // projectiles
     const c=collide(a,b);
     if(c){
       const n=c.n; const corr=c.depth-0.3;
@@ -500,6 +511,16 @@ function step(st, dt){
       }
     }
   }
+  // velocity clamp — prevents the solver from exploding to NaN when launched bricks
+  // collide with the fast car; keeps the sim stable.
+  const VM = 62 * P.scale;   // ~62 m/s hard cap
+  for(const b of bodies){
+    if(b.static || b.isCar) continue;
+    const sp = Math.hypot(b.vx, b.vy);
+    if(sp > VM){ const f = VM/sp; b.vx*=f; b.vy*=f; }
+  }
+  if(Math.abs(car.vx) > VM) car.vx = Math.sign(car.vx)*VM;
+  if(Math.abs(car.vy) > VM) car.vy = Math.sign(car.vy)*VM;
 }
 
 // ---------- Impact effects ----------
@@ -531,22 +552,6 @@ function updateParticles(dt){
   }
   for(let i=S.skids.length-1;i>=0;i--){
     const p=S.skids[i]; p.life-=dt; if(p.life<=0) S.skids.splice(i,1);
-  }
-}
-
-// Settling rubble chunks: fall under gravity and pile up on the ground, then stay.
-function updateRubble(dt){
-  const gy = S.gy;
-  for(let i=S.rubble.length-1;i>=0;i--){
-    const r=S.rubble[i];
-    if(r.settled){ continue; }
-    r.vy += GRAV*0.6*dt;
-    r.x += r.vx*dt; r.y += r.vy*dt; r.vx *= 0.96;
-    if(r.y >= gy - r.r){
-      r.y = gy - r.r;
-      if(Math.abs(r.vy) > 40){ r.vy = -r.vy*0.25; continue; }   // small bounce
-      r.settled = true; r.vy = 0;
-    }
   }
 }
 
@@ -681,13 +686,11 @@ function render(){
     }
     // bricks (single physics layer)
     for(const b of S.bodies){
-      if(b.static || b.isCar || b.isDead) continue;
+      if(b.static || b.isCar) continue;   // static = intact wall (drawn by drawWall); launched = flying
       drawBox3D(b, depth);
     }
     // dust behind car
     for(const p of S.dust){ drawDust(p); }
-    // rubble pile (ground level, behind the car)
-    for(const r of S.rubble){ drawRubble(r); }
     // car
     drawCar(S.car);
     // dust in front
@@ -705,14 +708,6 @@ function drawDust(p){
     ctx.fillStyle = "rgba(220,215,205,"+a*0.34+")";
   }
   ctx.beginPath(); ctx.arc(p.x,p.y,p.r*(0.5+a),0,Math.PI*2); ctx.fill();
-}
-
-function drawRubble(r){
-  ctx.save();
-  ctx.translate(r.x, r.y); ctx.rotate(r.a);
-  ctx.fillStyle = Math.random()<0.5 ? "#8a5a3c" : "#a56a45";
-  ctx.fillRect(-r.r/2, -r.r/2, r.r, r.r);
-  ctx.restore();
 }
 
 let cityDrawn = null;
@@ -751,8 +746,8 @@ function telemetry(){
   el.speed.innerHTML = spd.toFixed(1)+' <span>m/s</span>';
   el.time.innerHTML = S.t.toFixed(2)+' <span>s</span>';
   let moving=0;
-  for(const b of S.bodies){ if(b.static || b.isDead || b.isCar) continue; if(Math.hypot(b.vx,b.vy)>6) moving++; }
-  const total = S.bodies.filter(b=>!b.static && !b.isDead && !b.isCar).length;
+  for(const b of S.bodies){ if(b.static || b.isCar) continue; if(Math.hypot(b.vx,b.vy)>8) moving++; }
+  const total = S.bodies.filter(b=>!b.static && !b.isCar).length;
   el.move.innerHTML = moving+' <span>/ '+total+'</span>';
 }
 
@@ -772,7 +767,6 @@ function frame(now){
       acc -= FIXED;
     }
     updateParticles(dt);
-    updateRubble(dt);
     // finish detection
     const anyMove = S.bodies.some(b=>!b.static && Math.hypot(b.vx,b.vy)>6);
     const carStill = S.car && Math.abs(S.car.vx)<2 && Math.abs(S.car.vy)<2;
