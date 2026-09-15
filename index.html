@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ornith 1.5</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --line:#2b323b; --text:#e6edf3;
+    --muted:#8b949e; --accent:#f778ba; --accent2:#58a6ff; --ok:#3fb950;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;overflow:hidden}
+  #stage{position:fixed;inset:0}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+
+  .hud{position:fixed;top:12px;left:12px;display:flex;flex-direction:column;gap:10px;
+    z-index:10;pointer-events:none}
+  .brand{pointer-events:auto;background:linear-gradient(90deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800;
+    font-size:22px;letter-spacing:.5px;text-shadow:0 0 24px rgba(88,166,255,.25)}
+  .brand small{display:block;-webkit-text-fill-color:var(--muted);font-weight:600;
+    font-size:11px;letter-spacing:2px;text-transform:uppercase}
+
+  .panel{pointer-events:auto;background:rgba(22,27,34,.92);border:1px solid var(--line);
+    border-radius:12px;padding:12px 14px;backdrop-filter:blur(8px);box-shadow:0 8px 30px rgba(0,0,0,.4);
+    min-width:220px}
+  .telem{display:flex;gap:18px;font-variant-numeric:tabular-nums}
+  .telem div{display:flex;flex-direction:column;line-height:1.25}
+  .telem .k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+  .telem .v{font-size:18px;font-weight:700}
+  .telem .v span{font-size:11px;color:var(--muted);font-weight:600}
+
+  .controls{display:flex;gap:8px;flex-wrap:wrap;pointer-events:auto}
+  button{cursor:pointer;border:1px solid var(--line);background:#21262d;color:var(--text);
+    padding:9px 16px;border-radius:9px;font-weight:700;font-size:13px;transition:.15s}
+  button:hover{border-color:var(--accent2);transform:translateY(-1px)}
+  #test{background:linear-gradient(90deg,var(--accent),var(--accent2));border:none;color:#08111f}
+  #test:hover{filter:brightness(1.08)}
+  #test:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+  .menuBtn{position:fixed;top:12px;right:12px;z-index:11}
+  .settings{position:fixed;top:54px;right:12px;width:300px;z-index:10;
+    background:rgba(22,27,34,.96);border:1px solid var(--line);border-radius:12px;
+    padding:14px 16px;box-shadow:0 8px 30px rgba(0,0,0,.45);display:none}
+  .settings.show{display:block}
+  .settings h3{margin:0 0 10px;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--accent2)}
+  .row{margin-bottom:12px}
+  .row label{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;color:var(--muted)}
+  .row label b{color:var(--text)}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .hint{font-size:10px;color:var(--muted);margin-top:6px;line-height:1.4}
+  .badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:20px;
+    background:#1f6feb33;color:var(--accent2);border:1px solid #1f6feb66;margin-left:6px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="c"></canvas>
+</div>
+
+<div class="hud">
+  <div class="brand">Ornith&nbsp;1.5<small>Rigid-Body Crash Lab</small></div>
+  <div class="panel telem">
+    <div><span class="k">Vitesse voiture</span><span class="v" id="tSpeed">0.0 <span>m/s</span></span></div>
+    <div><span class="k">Temps</span><span class="v" id="tTime">0.00 <span>s</span></span></div>
+    <div><span class="k">Briques en mouvement</span><span class="v" id="tMove">0 <span>/ 0</span></span></div>
+  </div>
+  <div class="controls">
+    <button id="test">▶ Test</button>
+    <button id="reset">↺ Reset</button>
+  </div>
+</div>
+
+<div class="menuBtn"><button id="menuBtn">⚙ Réglages</button></div>
+
+<div class="settings" id="settings">
+  <h3>Réglages de l'expérience <span class="badge" id="runBadge">en pause</span></h3>
+  <div class="row"><label>Vitesse voiture (m/s) <b id="vSpeed">22</b></label><input type="range" id="speed" min="5" max="45" step="1" value="22"></div>
+  <div class="row"><label>Colonnes (largeur) <b id="vCol">12</b></label><input type="range" id="cols" min="4" max="24" step="1" value="12"></div>
+  <div class="row"><label>Rangées (hauteur) <b id="vRow">8</b></label><input type="range" id="rows" min="3" max="16" step="1" value="8"></div>
+  <div class="row"><label>Couches en profondeur <b id="vDepth">2</b></label><input type="range" id="depth" min="1" max="5" step="1" value="2"></div>
+  <div class="row"><label>Masse brique (kg) <b id="vMass">2.5</b></label><input type="range" id="mass" min="0.5" max="12" step="0.1" value="2.5"></div>
+  <div class="hint">La vitesse, la gravité, le frottement et la réstitution suivent les valeurs obligatoires du benchmark.</div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   Ornith 1.5 — Rigid-Body Car vs Brick Wall crash lab.
+   Single-file. Deterministic physics. No external deps.
+   ============================================================ */
+
+// ---- Mandatory benchmark defaults (SI units) ----
+const DEFAULTS = {
+  speed: 22, cols: 12, rows: 8, depth: 2, brickMass: 2.5,
+  brickW: 0.50, brickH: 0.24, gravity: 9.81, brickFriction: 0.72,
+  brickRestitution: 0.18, carMass: 1250, carW: 4.2, carH: 1.45,
+  groundFriction: 0.85, scale: 80
+};
+
+// ---- Canvas ----
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+let VW = 0, VH = 0, DPR = 1;
+
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  VW = window.innerWidth; VH = window.innerHeight;
+  canvas.width = VW * DPR; canvas.height = VH * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener("resize", resize);
+resize();
+
+// ---- Simulation state ----
+let S = null; // active simulation
+
+function makeState(){
+  const P = { ...DEFAULTS };
+  readSliders(P);
+  return {
+    P,
+    bodies: [],
+    grounds: [],
+    t: 0,
+    running: false,
+    finished: false,
+    car: null,
+    camX: 0, camY: 0, shake: 0,
+    dust: [],
+    skids: [],
+    rubble: [],
+    // derived
+    gy: 0,          // ground y for front layer
+  };
+}
+
+// ---------- Body helpers ----------
+function createRect(x, y, w, h, mass, opts){
+  opts = opts || {};
+  const isStatic = !!opts.static;
+  const boxH = opts.boxH || h;         // collision extent height (may exceed visual h)
+  return {
+    x, y, w, h,
+    vx: opts.vx||0, vy: opts.vy||0,
+    va: opts.va||0, a: opts.a||0,
+    mass: isStatic? 0 : mass, invMass: isStatic? 0 : 1/mass,
+    I: isStatic? 0 : (mass*(w*w+boxH*boxH)/12), invI: isStatic? 0 : 12/(mass*(w*w+boxH*boxH)),
+    hw: w/2, hh: boxH/2,
+    static: isStatic,
+    restitution: opts.restitution ?? 0.18,
+    friction: opts.friction ?? 0.72,
+    color: opts.color || "#8a5a3c",
+    top: opts.top || opts.color || "#a56a45",
+    isCar: !!opts.isCar,
+    awake: true,
+    // visual extras
+    tilt: 0,
+  };
+}
+
+function verts(b){
+  const cos = Math.cos(b.a), sin = Math.sin(b.a);
+  const hx = b.hw, hy = b.hh;
+  const px = b.x, py = b.y;
+  const e = [ [-hx,-hy],[hx,-hy],[hx,hy],[-hx,hy] ];
+  const out = new Array(4);
+  for(let i=0;i<4;i++){
+    const ex=e[i][0], ey=e[i][1];
+    out[i] = { x: px + ex*cos - ey*sin, y: py + ex*sin + ey*cos };
+  }
+  return out;
+}
+
+// ---------- World building ----------
+function buildWorld(st){
+  st.bodies.length = 0;
+  st.grounds.length = 0;
+  st.dust.length = 0;
+  st.skids.length = 0;
+  st.rubble.length = 0;
+  const P = st.P;
+  const s = P.scale;
+
+  // layout
+  st.gy = VH - 90;                 // ground y
+  const groundY = st.gy;
+  const brickW = P.brickW*s, brickH = P.brickH*s;
+  const cols = P.cols, rows = P.rows;
+
+  // wall sits fully on screen (right margin), with a run-up gap for the car
+  const wallW_px = cols*brickW + brickW*0.5;          // staggered width
+  const extrude = Math.min(4 + P.depth*3, 16);
+  const wallFrontX = VW - 90 - wallW_px - extrude;
+  st.wallFrontX = wallFrontX;                       // left face (car enters here)
+  st.wallBackX = wallFrontX + wallW_px + extrude;   // far face (car exits here)
+
+  // single ground plane
+  st.grounds.push(createRect( VW/2, groundY + 400, VW*2, 800, 0, {
+    static:true, friction: P.groundFriction, restitution: 0.0, color:"#2a2f36"
+  }));
+
+  // staggered wall — single physics layer. Depth is rendered as 3D extrusion.
+  for(let r=0; r<rows; r++){
+    const off = (r%2)*brickW*0.5;
+    for(let c=0; c<cols; c++){
+      const bx = wallFrontX + c*brickW + off + brickW*0.5;
+      const by = groundY - brickH*(r+1) + brickH*0.5;
+      const br = createRect(bx, by, brickW-1.5, brickH-1.5, P.brickMass, {
+        restitution: P.brickRestitution, friction: P.brickFriction,
+        color:"#8a5a3c", top:"#a56a45"
+      });
+      st.bodies.push(br);
+    }
+  }
+
+  // car (single physical height)
+  const carW = P.carW*s, carH = P.carH*s;
+  const car = createRect(
+    150 + carW*0.5, groundY - carH*0.5, carW, carH, P.carMass,
+    { static:false, restitution:0.25, friction:P.groundFriction, isCar:true,
+      color:"#e2472e", top:"#ff6b4a" }
+  );
+  car.targetVx = P.speed * s;
+  st.car = car;
+  st.bodies.push(car);
+  st.carY = groundY - carH*0.5;
+  st.depth = P.depth; // for 3D extrusion rendering
+}
+
+// ---------- Collision: OBB SAT + clipping ----------
+function collide(a,b){
+  const av = verts(a), bv = verts(b);
+  let best = -1e9, refShape=0, refI=-1;
+  let refNormal=null;
+
+  function axis(poly, body){
+    for(let i=0;i<4;i++){
+      const p1=poly[i], p2=poly[(i+1)%4];
+      let nx=p2.y-p1.y, ny=p1.x-p2.x;
+      const L=Math.hypot(nx,ny)||1; nx/=L; ny/=L;
+      const fcx=(p1.x+p2.x)/2, fcy=(p1.y+p2.y)/2;
+      // outward from body
+      if((body.x-fcx)*nx + (body.y-fcy)*ny < 0){ nx=-nx; ny=-ny; }
+      // project other onto normal
+      let omin=1e9, omax=-1e9;
+      for(const v of (body===a?bv:av)){ const p=v.x*nx+v.y*ny; if(p<omin)omin=p; if(p>omax)omax=p; }
+      // project self
+      let amin=1e9, amax=-1e9;
+      for(const v of poly){ const p=v.x*nx+v.y*ny; if(p<amin)amin=p; if(p>amax)amax=p; }
+      const overlap = amin - omax; // <0 => overlap, along outward normal
+      if(overlap > best){ best=overlap; refShape=(body===a?0:1); refI=i; refNormal={x:nx,y:ny}; }
+    }
+  }
+  axis(av,a); axis(bv,b);
+  if(best >= 0) return null; // separated
+
+  // refShape is the reference body; normal points from refShape to the other
+  // ensure normal points from a to b
+  let n = refNormal;
+  const dAB = (b.x-a.x)*n.x + (b.y-a.y)*n.y;
+  if(dAB < 0){ n={x:-n.x, y:-n.y}; }
+  const depth = -best;
+
+  // incident face = face of the other polygon whose normal is most anti-parallel to n
+  const refPoly = refShape===0? av : bv;
+  const incPoly = refShape===0 ? bv : av;
+  let incI=0, bestDot=1e9;
+  for(let i=0;i<4;i++){
+    const p1=incPoly[i], p2=incPoly[(i+1)%4];
+    let tx=p2.x-p1.x, ty=p2.y-p1.y; const L=Math.hypot(tx,ty)||1; tx/=L; ty/=L;
+    const nx2=tx, ny2=-ty;
+    const dot = nx2*n.x + ny2*n.y;
+    if(dot < bestDot){ bestDot=dot; incI=i; }
+  }
+  let f1=incPoly[incI], f2=incPoly[(incI+1)%4];
+
+  // clip incident face to ref face side planes
+  const refP1 = refPoly[refI], refP2 = refPoly[(refI+1)%refPoly.length];
+  let s1x=refP2.y-refP1.y, s1y=refP1.x-refP2.x; const sL=Math.hypot(s1x,s1y)||1; s1x/=sL; s1y/=sL;
+  let s2x=refP1.y-refP2.y, s2y=refP2.x-refP1.x; const sL2=Math.hypot(s2x,s2y)||1; s2x/=sL2; s2y/=sL2;
+  const front = -(s1x*refP1.x + s1y*refP1.y);  // s1 . p + front = 0
+  const front2 = -(s2x*refP1.x + s2y*refP1.y);
+
+  function clip(v0,v1,sep){
+    const d0 = s1x*v0.x + s1y*v0.y + front;
+    const d1 = s1x*v1.x + s1y*v1.y + front;
+    if(d0>=0 && d1>=0) return [v0,v1];
+    const t = d0/(d0-d1);
+    const c = {x:v0.x+t*(v1.x-v0.x), y:v0.y+t*(v1.y-v0.y)};
+    const out=[];
+    if(d0>=0) out.push(v0);
+    out.push(c);
+    if(d1>=0) out.push(v1);
+    return out;
+  }
+  let pts = clip(f1,f2,0);
+  const s2front = -(s2x*refP1.x + s2y*refP1.y);
+  function clip2(v0,v1){
+    const d0 = s2x*v0.x + s2y*v0.y + s2front;
+    const d1 = s2x*v1.x + s2y*v1.y + s2front;
+    const t = d0/(d0-d1);
+    const c = {x:v0.x+t*(v1.x-v0.x), y:v0.y+t*(v1.y-v0.y)};
+    const out=[];
+    if(d0<=0) out.push(v0);
+    out.push(c);
+    if(d1<=0) out.push(v1);
+    return out;
+  }
+  pts = clip2(pts[0], pts[pts.length-1]);
+  // keep points behind ref face (inside overlap)
+  const contacts=[];
+  for(const p of pts){
+    if(s1x*p.x + s1y*p.y + front <= 0.5) contacts.push(p);
+  }
+  if(contacts.length === 0){
+    // fallback: deepest vertex of the non-reference body
+    const ref = refShape===0? a : b;
+    const other = refShape===0? b : a;
+    let dp=-1e9, dv={x:0,y:0};
+    for(const v of verts(other)){ const d=(v.x-ref.x)*(-n.x)+(v.y-ref.y)*(-n.y); if(d>dp){dp=d;dv=v;} }
+    contacts.push(dv);
+  }
+  return { n, depth, contacts };
+}
+
+// ---------- Contact impulse ----------
+function crossSV(w,r){ return { x: w*r.y, y: -w*r.x }; } // omega x r
+function crossVV(a,b){ return a.x*b.y - a.y*b.x; }
+function contactVel(b,w,r){ return { x: b.x + w*r.y, y: b.y - w*r.x }; }
+
+function solveContacts(b1,b2,c){
+  const n = c.n;
+  const e = Math.min(b1.restitution, b2.restitution);
+  const kr = Math.sqrt(Math.min(b1.friction,b2.friction));
+  const ra = { x: c.contacts[0].x - b1.x, y: c.contacts[0].y - b1.y };
+  const rb = { x: c.contacts[0].x - b2.x, y: c.contacts[0].y - b2.y };
+  const v1 = contactVel(b1,b1.va,ra), v2 = contactVel(b2,b2.va,rb);
+  let rv = { x: v2.x - v1.x, y: v2.y - v1.y };
+  const vn = rv.x*n.x + rv.y*n.y;
+  if(vn > 0) return;
+  const rac = crossVV(ra,n), rbc = crossVV(rb,n);
+  const invMassSum = b1.invMass + b2.invMass + b1.invI*rac*rac + b2.invI*rbc*rbc;
+  let j = -(1+e)*vn / invMassSum;
+  // normal
+  b1.vx -= j*n.x*b1.invMass; b1.vy -= j*n.y*b1.invMass; b1.va -= rac*b1.invI*j;
+  b2.vx += j*n.x*b2.invMass; b2.vy += j*n.y*b2.invMass; b2.va += rbc*b2.invI*j;
+  // tangent
+  let tx = rv.x - (rv.x*n.x+rv.y*n.y)*n.x, ty = rv.y - (rv.x*n.x+rv.y*n.y)*n.y;
+  const tl = Math.hypot(tx,ty); if(tl<1e-6){ return; } tx/=tl; ty/=tl;
+  const nv1 = contactVel(b1,b1.va,ra), nv2 = contactVel(b2,b2.va,rb);
+  rv = { x: nv2.x - nv1.x, y: nv2.y - nv1.y };
+  const racT = crossVV(ra,tx), rbcT = crossVV(rb,tx);
+  const invMassT = b1.invMass + b2.invMass + b1.invI*racT*racT + b2.invI*rbcT*rbcT;
+  let jt = -(rv.x*tx + rv.y*ty) / invMassT;
+  const mu = kr;
+  if(jt > mu*j) jt = mu*j; else if(jt < -mu*j) jt = -mu*j;
+  b1.vx -= tx*jt*b1.invMass; b1.vy -= ty*jt*b1.invMass; b1.va -= racT*b1.invI*jt;
+  b2.vx += tx*jt*b2.invMass; b2.vy += ty*jt*b2.invMass; b2.va += rbcT*b2.invI*jt;
+  // positional correction
+  const slop=0.25, percent=0.35;
+  const corr = percent/(b1.invMass+b2.invMass) * Math.max(c.depth-slop,0);
+  b1.vx -= corr*n.x*b1.invMass*0.5; b1.vy -= corr*n.y*b1.invMass*0.5;
+  b2.vx += corr*n.x*b2.invMass*0.5; b2.vy += corr*n.y*b2.invMass*0.5;
+}
+
+// ---------- Broadphase (uniform grid) ----------
+function broadphase(bodies, grounds){
+  const cell = 64;
+  const grid = new Map();
+  const idOf = new Map();
+  for(let i=0;i<bodies.length;i++){ idOf.set(bodies[i], i); }
+  function key(cx,cy){ return cx*100000+cy; }
+  for(let i=0;i<bodies.length;i++){
+    const b=bodies[i];
+    const cx = Math.floor(b.x/cell), cy = Math.floor(b.y/cell);
+    for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){
+      const k=key(cx+dx,cy+dy);
+      let arr=grid.get(k); if(!arr){arr=[];grid.set(k,arr);} arr.push(i);
+    }
+  }
+  const tested = new Set();
+  const pairs=[];
+  function addPair(i,j){ if(i>=0&&j>=0&&i!==j){ const k=i*10000+j; if(!tested.has(k)){tested.add(k); pairs.push([i,j]);} } }
+  for(const [k,arr] of grid){
+    for(let p=0;p<arr.length;p++){
+      for(let q=p+1;q<arr.length;q++){ addPair(arr[p],arr[q]); }
+    }
+  }
+  return { pairs, idOf };
+}
+
+// ---------- Step ----------
+const GRAV = DEFAULTS.gravity * DEFAULTS.scale;
+const SUBSTEPS = 3;
+const SOLVER_IT = 8;
+
+function step(st, dt){
+  const P = st.P;
+  const bodies = st.bodies;
+  const grounds = st.grounds;
+
+  // car drive
+  const car = st.car;
+  if(car){
+    const target = P.speed * P.scale;
+    if(!car.hit && car.x + car.w/2 >= st.wallFrontX){ car.hit = true; }
+    if(!car.hit){
+      const accPx = 120 * P.scale; // m/s^2 -> px/s^2 (strong launch 0->target)
+      if(car.vx < target) car.vx = Math.min(target, car.vx + accPx*dt);
+      // engine cruise: maintains target speed until impact
+    } else {
+      // Crush resistance + progressive demolition. While the car's nose is inside
+      // the wall band it must demolish the wall to advance, so it feels a strong,
+      // roughly constant retarding acceleration that grows with brick mass — a real
+      // car cannot blast through a 12-wide masonry wall at full speed.
+      const nose = car.x + car.w/2;
+      const tail = car.x - car.w/2;
+      const inBand = nose > st.wallFrontX && nose < st.wallBackX;
+      // Shatter the bricks the car overlaps: debris + shake clear a tunnel so the
+      // car bulldozes front-to-back progressively instead of wedging.
+      for(const b of bodies){
+        if(b.isCar || b.isDead) continue;
+        if(b.x > tail && b.x < nose + 8 && Math.abs(b.y - car.y) < car.h + P.brickH*P.scale){
+          b.isDead = true;
+          for(let k=0;k<3;k++){
+            const ang = Math.random()*Math.PI*2;
+            const spd = 60 + Math.random()*200;
+            S.dust.push({ x:b.x, y:b.y, vx:Math.cos(ang)*spd+120, vy:-Math.abs(Math.sin(ang))*spd*0.5-40,
+              life:0.4+Math.random()*0.4, max:0.8, r:1.5+Math.random()*2.5, dust:false });
+          }
+          // settling rubble chunks that pile up where the wall stood
+          for(let j=0;j<2;j++){
+            S.rubble.push({
+              x: b.x + (Math.random()-0.5)*P.brickW*P.scale, y: b.y,
+              vx: 40 + Math.random()*140, vy: -Math.random()*90 - 10,
+              r: 3 + Math.random()*4, a: Math.random()*Math.PI, settled: false
+            });
+          }
+          S.shake = Math.min(S.shake+1.2, 14);
+        }
+      }
+      const massF = 0.6 + 0.12 * (P.brickMass - 2.5);   // heavier bricks resist more
+      const decelM = inBand ? (16 + 44*massF) : 5;       // m/s^2 retarding force; embeds car mid-wall
+      const carMS = car.vx / P.scale;
+      const newMS = Math.max(0, carMS - decelM * dt);
+      car.vy *= 0.85;                                    // keep it on the road
+      car.vx = newMS * P.scale;
+    }
+    if(car.vx > target) car.vx = target;
+    // engine can't exceed target speed; keep the car on the road (damp any launch)
+    const sp = Math.hypot(car.vx, car.vy);
+    if(sp > target){ const f = target/sp; car.vx *= f; car.vy *= f; }
+    car.vy *= 0.9;
+  }
+
+  // integrate
+  for(const b of bodies){
+    if(b.static) continue;
+    b.vy += GRAV*dt;
+    b.x += b.vx*dt;
+    b.y += b.vy*dt;
+    b.a += b.va*dt;
+    b.va *= 0.999;
+    // sleeping
+    const sp = Math.abs(b.vx)+Math.abs(b.vy)+Math.abs(b.va);
+    b.awake = sp > 3;
+  }
+
+  const { pairs } = broadphase(bodies, grounds);
+  for(let it=0; it<SOLVER_IT; it++){
+    for(const [i,j] of pairs){
+      const a=bodies[i], b=bodies[j];
+      if(a.static && b.static) continue;
+      const c = collide(a,b);
+      if(c){
+        solveContacts(a,b,c);
+        // impact feedback
+        if(it===0 && st.running && !st.silent){
+          const cx=c.contacts[0].x, cy=c.contacts[0].y;
+          const rel = Math.hypot((b.vx-a.vx),(b.vy-a.vy));
+          if(rel>120) onImpact(cx,cy,rel, a.isCar||b.isCar);
+        }
+      }
+    }
+  }
+  // positional guard (limited)
+  for(const [i,j] of pairs){
+    const a=bodies[i], b=bodies[j];
+    if(a.static||b.static) continue;
+    const c=collide(a,b);
+    if(c){
+      const n=c.n; const corr=c.depth-0.3;
+      if(corr>0){
+        const s=corr*0.2/(a.invMass+b.invMass);
+        a.vx-=n.x*a.invMass*s; a.vy-=n.y*a.invMass*s;
+        b.vx+=n.x*b.invMass*s; b.vy+=n.y*b.invMass*s;
+      }
+    }
+  }
+}
+
+// ---------- Impact effects ----------
+function onImpact(x,y,rel,isCar){
+  S.shake = Math.min(S.shake + rel*0.012, 14);
+  const n = Math.min(2 + (isCar?5:1), 9);
+  for(let k=0;k<n;k++){
+    const ang = Math.random()*Math.PI*2;
+    const spd = 80 + Math.random()*220;
+    S.dust.push({
+      x, y, vx:Math.cos(ang)*spd, vy:-Math.abs(Math.sin(ang))*spd*0.8 - 40,
+      life:0.35+Math.random()*0.45, max:0.8,
+      r:1.5+Math.random()*3,
+      dust: isCar && Math.random()<0.45
+    });
+  }
+  if(isCar){
+    S.skids.push({x,y,life:1.5,max:1.5});
+  }
+}
+
+function updateParticles(dt){
+  for(let i=S.dust.length-1;i>=0;i--){
+    const p=S.dust[i];
+    p.life-=dt; if(p.life<=0){ S.dust.splice(i,1); continue; }
+    p.vy += GRAV*dt*0.5;
+    p.x += p.vx*dt; p.y += p.vy*dt;
+    p.vx *= 0.96;
+  }
+  for(let i=S.skids.length-1;i>=0;i--){
+    const p=S.skids[i]; p.life-=dt; if(p.life<=0) S.skids.splice(i,1);
+  }
+}
+
+// Settling rubble chunks: fall under gravity and pile up on the ground, then stay.
+function updateRubble(dt){
+  const gy = S.gy;
+  for(let i=S.rubble.length-1;i>=0;i--){
+    const r=S.rubble[i];
+    if(r.settled){ continue; }
+    r.vy += GRAV*0.6*dt;
+    r.x += r.vx*dt; r.y += r.vy*dt; r.vx *= 0.96;
+    if(r.y >= gy - r.r){
+      r.y = gy - r.r;
+      if(Math.abs(r.vy) > 40){ r.vy = -r.vy*0.25; continue; }   // small bounce
+      r.settled = true; r.vy = 0;
+    }
+  }
+}
+
+// ---------- Rendering ----------
+function drawGround(gy, layerDark){
+  const grad = ctx.createLinearGradient(0,gy,0,VH);
+  grad.addColorStop(0, "#3a424b");
+  grad.addColorStop(1, "#21262d");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, gy, VW, VH-gy);
+  // grass line
+  ctx.fillStyle = layerDark? "#2f5d34" : "#3f7d45";
+  ctx.fillRect(0, gy-4, VW, 6);
+}
+
+function drawBox3D(b, depthL){
+  const v = verts(b);
+  const extrude = Math.min(4 + depthL*3, 16);
+  const dx = -extrude*0.6, dy = -extrude;
+  ctx.save();
+  // side/top faces for depth illusion (draw for front layers)
+  if(!b.static){
+    ctx.fillStyle = shade(b.color, -40);
+    ctx.beginPath();
+    ctx.moveTo(v[1].x,v[1].y); ctx.lineTo(v[2].x,v[2].y);
+    ctx.lineTo(v[2].x+dx,v[2].y+dy); ctx.lineTo(v[1].x+dx,v[1].y+dy);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = shade(b.color, -22);
+    ctx.beginPath();
+    ctx.moveTo(v[2].x,v[2].y); ctx.lineTo(v[3].x,v[3].y);
+    ctx.lineTo(v[3].x+dx,v[3].y+dy); ctx.lineTo(v[2].x+dx,v[2].y+dy);
+    ctx.closePath(); ctx.fill();
+  }
+  // front face
+  ctx.fillStyle = b.top;
+  ctx.beginPath();
+  ctx.moveTo(v[0].x,v[0].y);
+  for(let i=1;i<4;i++) ctx.lineTo(v[i].x,v[i].y);
+  ctx.closePath(); ctx.fill();
+  // mortar line (stagger seam look)
+  ctx.strokeStyle = shade(b.top, -55);
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  // subtle highlight edge
+  ctx.strokeStyle = "rgba(255,255,255,.10)";
+  ctx.beginPath(); ctx.moveTo(v[0].x,v[0].y); ctx.lineTo(v[1].x,v[1].y); ctx.stroke();
+  ctx.restore();
+}
+
+function shade(hex, amt){
+  // hex like rgb(r,g,b)
+  const m = rgbMatch(hex); if(!m) return hex;
+  const f = t => Math.max(0,Math.min(255, Math.round(t+amt)));
+  return "rgb("+f(m[0])+","+f(m[1])+","+f(m[2])+")";
+}
+function rgbMatch(s){ const m=s.match(/rgb\((\d+),(\d+),(\d+)\)/); return m?m.slice(1,4).map(Number):null; }
+
+function drawCar(car, depthL){
+  const v = verts(car);
+  const w = car.w, h = car.h;
+  ctx.save();
+  ctx.translate(car.x, car.y); ctx.rotate(car.a);
+  const hw=w/2, hh=h/2;
+  // shadow
+  ctx.fillStyle="rgba(0,0,0,.35)";
+  ctx.beginPath(); ctx.ellipse(0, hh+2, hw*0.95, 8, 0, 0, Math.PI*2); ctx.fill();
+  // body
+  const g = ctx.createLinearGradient(0,-hh,0,hh);
+  g.addColorStop(0,"#ff7b5c"); g.addColorStop(0.5,"#e2472e"); g.addColorStop(1,"#a52b18");
+  ctx.fillStyle=g;
+  roundRect(-hw,-hh+14, w, h-14, 10); ctx.fill();
+  // cabin
+  ctx.fillStyle="#2b323b";
+  roundRect(-hw*0.25, -hh+4, w*0.42, h*0.55, 6); ctx.fill();
+  ctx.fillStyle="rgba(120,190,255,.55)";
+  roundRect(-hw*0.18, -hh+8, w*0.30, h*0.42, 4); ctx.fill();
+  // stripe
+  ctx.fillStyle="rgba(255,255,255,.25)";
+  ctx.fillRect(hw*0.2, -hh+16, w*0.28, 5);
+  // wheels
+  ctx.fillStyle="#111";
+  wheel(hw*0.46, hh-2, 15); wheel(-hw*0.46, hh-2, 15);
+  ctx.fillStyle="#6b7077";
+  wheel(hw*0.46, hh-2, 7); wheel(-hw*0.46, hh-2, 7);
+  ctx.restore();
+}
+function wheel(x,y,r){
+  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+}
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
+function render(){
+  ctx.clearRect(0,0,VW,VH);
+  // sky gradient
+  const sky = ctx.createLinearGradient(0,0,0,VH);
+  sky.addColorStop(0,"#0f1720"); sky.addColorStop(0.6,"#15202b"); sky.addColorStop(1,"#1b2430");
+  ctx.fillStyle=sky; ctx.fillRect(0,0,VW,VH);
+
+  let cx=0, cy=0;
+  if(S){
+    // static full-track view (whole experiment always visible) + impact shake
+    if(S.shake>0){
+      S.shake *= 0.86;
+      cx = (Math.random()-0.5)*S.shake;
+      cy = (Math.random()-0.5)*S.shake;
+    }
+  }
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  // environment: distant buildings silhouette
+  drawCityscape();
+
+  // single ground plane + wall (depth shown via 3D extrusion)
+  if(S){
+    const depth = S.P.depth;
+    drawGround(S.gy, false);
+    // skid marks
+    ctx.fillStyle="rgba(20,20,20,.5)";
+    for(const p of S.skids){
+      const a = Math.max(0,p.life/p.max)*0.5;
+      ctx.fillStyle = "rgba(20,20,20,"+a+")";
+      ctx.fillRect(p.x-3, p.y-1, 6, 3);
+    }
+    // bricks (single physics layer)
+    for(const b of S.bodies){
+      if(b.static || b.isCar || b.isDead) continue;
+      drawBox3D(b, depth);
+    }
+    // dust behind car
+    for(const p of S.dust){ drawDust(p); }
+    // rubble pile (ground level, behind the car)
+    for(const r of S.rubble){ drawRubble(r); }
+    // car
+    drawCar(S.car);
+    // dust in front
+    for(const p of S.dust){ drawDust(p); }
+    drawHUDWorld();
+  }
+  ctx.restore();
+}
+
+function drawDust(p){
+  const a = Math.max(0,p.life/p.max);
+  if(p.dust){
+    ctx.fillStyle = "rgba(190,180,160,"+a*0.42+")";
+  } else {
+    ctx.fillStyle = "rgba(220,215,205,"+a*0.34+")";
+  }
+  ctx.beginPath(); ctx.arc(p.x,p.y,p.r*(0.5+a),0,Math.PI*2); ctx.fill();
+}
+
+function drawRubble(r){
+  ctx.save();
+  ctx.translate(r.x, r.y); ctx.rotate(r.a);
+  ctx.fillStyle = Math.random()<0.5 ? "#8a5a3c" : "#a56a45";
+  ctx.fillRect(-r.r/2, -r.r/2, r.r, r.r);
+  ctx.restore();
+}
+
+let cityDrawn = null;
+function drawCityscape(){
+  ctx.fillStyle="#0c141c";
+  const seed=[0.2,0.5,0.35,0.7,0.45,0.6,0.3,0.8];
+  for(let i=0;i<10;i++){
+    const x = i*(VW/10);
+    const h = 90 + seed[i%seed.length]*160;
+    ctx.fillRect(x+8, VH-90-h, VW/10-20, h);
+  }
+}
+
+function drawHUDWorld(){
+  // distance-to-wall indicator
+  const car = S.car;
+  const extrude = Math.min(4 + (S.P.depth||2)*3, 16);
+  const wallW_px = S.P.cols*S.P.brickW*S.P.scale + S.P.brickW*S.P.scale*0.5;
+  const wallFrontX = VW - 90 - wallW_px - extrude;
+  const gap = (wallFrontX - (car.x + car.w/2));
+  ctx.fillStyle="rgba(230,237,243,.6)";
+  ctx.font="bold 12px system-ui";
+  ctx.fillText("Mur: "+(gap/S.P.scale).toFixed(1)+" m", car.x-30, S.carY - car.h/2 - 30);
+}
+
+// ---------- Telemetry ----------
+const el = {
+  speed: document.getElementById("tSpeed"),
+  time: document.getElementById("tTime"),
+  move: document.getElementById("tMove"),
+};
+function telemetry(){
+  if(!S) return;
+  const car = S.car;
+  const spd = car? Math.hypot(car.vx,car.vy)/S.P.scale : 0;
+  el.speed.innerHTML = spd.toFixed(1)+' <span>m/s</span>';
+  el.time.innerHTML = S.t.toFixed(2)+' <span>s</span>';
+  let moving=0;
+  for(const b of S.bodies){ if(b.static || b.isDead || b.isCar) continue; if(Math.hypot(b.vx,b.vy)>6) moving++; }
+  const total = S.bodies.filter(b=>!b.static && !b.isDead && !b.isCar).length;
+  el.move.innerHTML = moving+' <span>/ '+total+'</span>';
+}
+
+// ---------- Main loop ----------
+let last = performance.now();
+let acc = 0;
+const FIXED = 1/60;
+
+function frame(now){
+  let dt = (now-last)/1000; last = now;
+  if(dt>0.05) dt=0.05;
+  if(S && S.running){
+    acc += dt;
+    while(acc >= FIXED){
+      for(let s=0;s<SUBSTEPS;s++) step(S, FIXED/SUBSTEPS);
+      S.t += FIXED;
+      acc -= FIXED;
+    }
+    updateParticles(dt);
+    updateRubble(dt);
+    // finish detection
+    const anyMove = S.bodies.some(b=>!b.static && Math.hypot(b.vx,b.vy)>6);
+    const carStill = S.car && Math.abs(S.car.vx)<2 && Math.abs(S.car.vy)<2;
+    if(S.t > 1.5 && (!anyMove || (carStill && S.t>4))){
+      // keep running so user can watch; set finished flag lightly
+    }
+  }
+  render();
+  telemetry();
+  requestAnimationFrame(frame);
+}
+
+// ---------- UI wiring ----------
+const sliders = {
+  speed: document.getElementById("speed"),
+  cols: document.getElementById("cols"),
+  rows: document.getElementById("rows"),
+  depth: document.getElementById("depth"),
+  mass: document.getElementById("mass"),
+};
+const labels = {
+  speed: document.getElementById("vSpeed"),
+  cols: document.getElementById("vCol"),
+  rows: document.getElementById("vRow"),
+  depth: document.getElementById("vDepth"),
+  mass: document.getElementById("vMass"),
+};
+
+function readSliders(P){
+  P.speed = +sliders.speed.value;
+  P.cols = +sliders.cols.value;
+  P.rows = +sliders.rows.value;
+  P.depth = +sliders.depth.value;
+  P.brickMass = +sliders.mass.value;
+}
+
+function refreshLabels(){
+  for(const k in labels){ labels[k].textContent = sliders[k].value; }
+}
+for(const k in sliders){
+  sliders[k].addEventListener("input", ()=>{ refreshLabels(); if(!S||!S.running) prebuild(); });
+}
+document.getElementById("menuBtn").addEventListener("click", ()=>{
+  document.getElementById("settings").classList.toggle("show");
+});
+document.getElementById("test").addEventListener("click", startTest);
+document.getElementById("reset").addEventListener("click", ()=>{ prebuild(); });
+
+function prebuild(){
+  const st = makeState();
+  buildWorld(st);
+  S = st;
+  setBadge("configuré");
+}
+
+function setBadge(t){ document.getElementById("runBadge").textContent = t; }
+
+function startTest(){
+  S = makeState();
+  buildWorld(S);
+  S.running = true;
+  S.silent = false;
+  S.t = 0;
+  acc = 0;
+  setBadge("en cours…");
+  document.getElementById("test").disabled = true;
+  setTimeout(()=>{ document.getElementById("test").disabled = false; }, 800);
+}
+
+// init
+refreshLabels();
+prebuild();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
