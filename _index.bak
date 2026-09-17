@@ -130,11 +130,10 @@ let S = null;
 const SUBSTEPS = 5;
 const SOLVER_IT = 14;
 const SLOP = 0.4;            // penetration slop (px)
-const POS_FACTOR = 0.25;     // positional correction factor
+const POS_FACTOR = 0.42;     // positional correction factor
 const REST_SPEED = 45;       // below this normal impact speed -> no restitution
 const VELOCITY_LIMIT = 14000; // px/s clamp for stability
 const ANG_LIMIT = 40;        // rad/s clamp
-const LINEAR_DAMP = 0.9995;  // per-substep linear damping (kills settling jitter)
 
 // Deterministic RNG for VISUAL effects only (never affects physics).
 let rngState = 0x9e3779b9;
@@ -282,10 +281,9 @@ function collide(a, b){
       if(overlap < best){ best = overlap; refBody = bi; refIdx = f; refN = {x:n.x,y:n.y}; }
     }
   }
-  if(refBody === null) { if(window.__dbg) console.log("collide: refNull"); return null; }
+  if(refBody === null) return null;
   // reference face
   const refBox = bodies[refBody];
-  if(window.__dbg) window._dbgCollideResult = "axes-ok best="+best;}
   const f = faceCorners(refIdx, refBox);
   const n = (refBody===0) ? {x:refN.x,y:refN.y} : {x:-refN.x,y:-refN.y};
   // incident body & face (most anti-parallel to n)
@@ -298,26 +296,24 @@ function collide(a, b){
   }
   const inc = faceCorners(incIdx, incBox);
 
-  // clip the incident segment against the reference face plane and its two side
-  // edges, keeping the part that lies INSIDE the reference face.
+  // clip incident segment against reference face planes
   const s = Math.hypot(f.p1.x-f.p0.x, f.p1.y-f.p0.y) || 1;
-  const sx = (f.p1.x-f.p0.x)/s, sy=(f.p1.y-f.p0.y)/s; // reference face direction
+  const sx = (f.p1.x-f.p0.x)/s, sy=(f.p1.y-f.p0.y)/s; // face direction
   let pts = [ inc.p0, inc.p1 ];
   // plane 0: reference face plane, normal n, keep points behind (dot(n,p) <= offset)
   const off = n.x*f.p0.x + n.y*f.p0.y;
   pts = clip(pts, n.x, n.y, off);
-  if(pts.length < 1){ if(window.__dbg) console.log("collide: clip0 empty"); return null; }
-  // side edge 1 through f.p0, keep points with dot(d,P) >= dot(d,R0)  ->  clip(-d, R0)
-  pts = clip(pts, -sx, -sy, -sx*f.p0.x - sy*f.p0.y);
-  if(pts.length < 1){ if(window.__dbg) console.log("collide: clip1 empty"); return null; }
-  // side edge 2 through f.p1, keep points with dot(d,P) <= dot(d,R1) ->  clip( d, R1)
-  pts = clip(pts, sx, sy, sx*f.p1.x + sy*f.p1.y);
-  if(window.__dbg) window._dbgClip2 = pts.length;
-  if(pts.length === 0){ if(window.__dbg) console.log("collide: clip2 empty"); return null; }
-  // up to two contact points across the face -> stable stacking
-  const res = { n, depth: best, contacts: pts.map(pt => ({ x: pt.x, y: pt.y })) };
-  if(window.__dbg) window._dbgResult = {found:true, nc:res.contacts.length, depth:best};
-  return res;
+  if(pts.length < 1) return null;
+  // side planes through f.p0 (normal +s) and f.p1 (normal -s)
+  pts = clip(pts, sx, sy, sx*f.p0.x + sy*f.p0.y);
+  if(pts.length < 1) return null;
+  pts = clip(pts, -sx, -sy, -sx*f.p1.x - sy*f.p1.y);
+
+  if(pts.length === 0) return null;
+  let cx=0, cy=0;
+  for(const p of pts){ cx+=p.x; cy+=p.y; }
+  const ct = { x: cx/pts.length, y: cy/pts.length };
+  return { n, depth: best, contacts:[ ct ] };
 }
 
 // clip segment [p0,p1] by plane: keep points with dot(n,p) <= offset + slop
@@ -462,10 +458,10 @@ function step(st, dt){
   for(const b of bodies){
     if(b.static) continue;
     b.vy += GRAV*dt;
-    b.vx *= LINEAR_DAMP; b.vy *= LINEAR_DAMP; b.va *= 0.999;  // slight damping kills settling jitter
     b.x += b.vx*dt;
     b.y += b.vy*dt;
     b.a += b.va*dt;
+    b.va *= 0.999;
   }
 
   const pairs = broadphase(st);
@@ -776,7 +772,7 @@ document.getElementById("reset").addEventListener("click", ()=> prebuild());
 
 function settleWorld(st){
   st.running=false;
-  for(let i=0;i<180;i++) step(st, FIXED/SUBSTEPS);
+  for(let i=0;i<320;i++) step(st, FIXED/SUBSTEPS);
   for(const b of st.bodies){ if(b.static) continue; b.vx=0; b.vy=0; b.va=0; b.va=0; }
 }
 function prebuild(){
@@ -810,11 +806,6 @@ window.__crash = {
   __gy(){ return S ? S.gy : 0; },
   __body(i){ return S ? S.bodies[i] : null; },
   __n(){ return S ? S.bodies.length : 0; },
-  get camX(){ return S?S.camX:0; },
-  get camY(){ return S?S.camY:0; },
-  get camScale(){ return S?S.camScale:1; },
-  get wallFrontX(){ return S?S.wallFrontX:0; },
-  get wallEndX(){ return S?S.wallEndX:0; },
 };
 </script>
 </body>
